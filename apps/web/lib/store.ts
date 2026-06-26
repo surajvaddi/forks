@@ -117,7 +117,7 @@ function shouldUsePrismaStore() {
 }
 
 function shouldUseFileBackedMemoryStore() {
-  return !shouldUsePrismaStore() && process.env.NODE_ENV !== "test";
+  return process.env.FORKS_STORE !== "memory" && !shouldUsePrismaStore() && process.env.NODE_ENV !== "test";
 }
 
 function now() {
