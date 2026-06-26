@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   createProject,
   createThread,
@@ -22,16 +23,18 @@ function getString(formData: FormData, key: string) {
 export async function createProjectAction(formData: FormData) {
   const title = getString(formData, "title");
   if (!title) return;
-  await createProject(title);
+  const { project, thread } = await createProject(title);
   revalidatePath("/");
+  redirect(`/?project=${project.id}&thread=${thread.id}`);
 }
 
 export async function createThreadAction(formData: FormData) {
   const projectId = getString(formData, "projectId");
   const title = getString(formData, "title") || "New learning thread";
   if (!projectId) return;
-  await createThread(projectId, title);
+  const thread = await createThread(projectId, title);
   revalidatePath("/");
+  redirect(`/?project=${projectId}&thread=${thread.id}`);
 }
 
 export async function submitPromptAction(formData: FormData) {

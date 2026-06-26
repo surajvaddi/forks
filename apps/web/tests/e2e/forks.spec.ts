@@ -7,6 +7,20 @@ test("Forks learning flow renders", async ({ page }) => {
   await expect(page.getByLabel("Chat prompt")).toBeVisible();
 });
 
+test("creates a project and opens its first thread", async ({ page }, testInfo) => {
+  const title = `Modal Systems ${testInfo.project.name} ${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByLabel("New project").fill(title);
+  await page.getByRole("button", { name: "Create project" }).click();
+
+  await expect(page.getByRole("link", { name: title }).first()).toBeVisible();
+  await expect(page).toHaveURL(/project=/);
+  await expect(page).toHaveURL(/thread=/);
+  await expect(page.getByRole("heading", { name: "First learning thread" })).toBeVisible();
+  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
