@@ -17,6 +17,7 @@ test("creates a project and opens its first thread", async ({ page }, testInfo) 
   await expect(page.getByRole("link", { name: title }).first()).toBeVisible();
   await expect(page).toHaveURL(/project=/);
   await expect(page).toHaveURL(/thread=/);
+  await expect(page.getByTestId("project-item").filter({ has: page.getByRole("link", { name: title }) }).getByRole("link", { name: "First learning thread" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "First learning thread" })).toBeVisible();
   await expect(page.getByLabel("Chat prompt")).toBeVisible();
 });
@@ -32,7 +33,8 @@ test("deletes projects and threads from the sidebar", async ({ page }, testInfo)
 
   await page.getByLabel("New thread").fill(threadTitle);
   await page.getByRole("button", { name: "Create thread" }).click();
-  await expect(page.getByRole("link", { name: threadTitle }).first()).toBeVisible();
+  const projectItem = page.getByTestId("project-item").filter({ has: page.getByRole("link", { name: projectTitle }) });
+  await expect(projectItem.getByRole("link", { name: threadTitle })).toBeVisible();
 
   await page.getByRole("button", { name: `Delete thread ${threadTitle}` }).click();
   await expect(page.getByRole("link", { name: threadTitle })).toHaveCount(0);
