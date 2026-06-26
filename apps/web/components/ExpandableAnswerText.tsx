@@ -34,12 +34,12 @@ export function ExpandableAnswerText({ content, spans }: { content: string; span
 
         if (isExpanded) {
           return (
-            <span key={spanId} className="mx-0.5 inline rounded-md border border-moss/40 bg-skywash px-1.5 py-1 shadow-[0_0_0_2px_rgba(141,166,139,0.12)]">
+            <span key={spanId} className="group/expanded inline" data-testid="expanded-definition">
               <mark className="rounded bg-transparent text-ink underline decoration-moss decoration-2 underline-offset-4">{part.text}</mark>
-              <span className="ml-1 text-sm leading-6 text-neutral-700">{definition}</span>
+              <span className="ml-1 text-sm leading-6 text-neutral-600">{definition}</span>
               <button
                 type="button"
-                className="ml-1 inline-flex h-5 w-5 translate-y-0.5 items-center justify-center rounded border border-line bg-white text-neutral-600 hover:border-moss hover:text-ink"
+                className="invisible ml-1 inline-flex h-5 w-5 translate-y-0.5 items-center justify-center rounded border border-line bg-white text-neutral-600 opacity-0 transition group-hover/expanded:visible group-hover/expanded:opacity-100 group-focus-within/expanded:visible group-focus-within/expanded:opacity-100 hover:border-moss hover:text-ink"
                 aria-label={`Condense definition for ${part.text}`}
                 title="Condense definition"
                 onClick={() => condenseSpan(spanId)}
@@ -53,17 +53,18 @@ export function ExpandableAnswerText({ content, spans }: { content: string; span
         return (
           <span key={spanId} className="group relative inline-block">
             <mark className="rounded bg-skywash px-1 text-ink underline decoration-moss decoration-2 underline-offset-4">{part.text}</mark>
-            <span className="invisible absolute left-0 top-7 z-20 w-72 rounded border border-line bg-ink p-3 text-sm leading-5 text-paper opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-              <strong className="block text-white">{part.text}</strong>
-              <span>{definition}</span>
+            <span className="invisible absolute left-0 top-7 z-20 w-72 rounded border border-line bg-ink p-3 pr-10 text-sm leading-5 text-paper opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               <button
                 type="button"
-                className="mt-3 inline-flex items-center gap-1 rounded border border-white/20 bg-white px-2 py-1 text-xs font-medium text-ink hover:bg-skywash"
+                className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded border border-white/20 bg-white text-ink hover:bg-skywash"
                 aria-label={`Add definition for ${part.text} to text`}
+                title="Add to text"
                 onClick={() => expandSpan(spanId)}
               >
-                <Plus size={12} /> Add to text
+                <Plus size={13} />
               </button>
+              <strong className="block pr-3 text-white">{part.text}</strong>
+              <span>{definition}</span>
             </span>
           </span>
         );

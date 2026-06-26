@@ -79,6 +79,8 @@ test("expands and condenses hover definitions inline", async ({ page }, testInfo
   await page.getByRole("button", { name: "Add definition for core concept to text" }).click();
 
   await expect(page.getByText("The main idea a learner should understand before branching into details.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Condense definition for core concept" })).not.toBeVisible();
+  await page.getByTestId("expanded-definition").hover();
   await expect(page.getByRole("button", { name: "Condense definition for core concept" })).toBeVisible();
 
   await page.getByRole("button", { name: "Condense definition for core concept" }).click();
