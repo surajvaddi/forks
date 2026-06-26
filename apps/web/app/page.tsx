@@ -57,7 +57,7 @@ export default async function Home({
 
 function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid h-dvh min-h-0 grid-cols-[280px_minmax(0,1fr)_360px] overflow-hidden max-lg:grid-cols-[220px_minmax(0,1fr)] max-md:flex max-md:flex-col">
+    <div className="grid h-dvh min-h-0 grid-cols-[280px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)] overflow-hidden max-lg:grid-cols-[220px_minmax(0,1fr)] max-md:flex max-md:flex-col">
       {children}
     </div>
   );

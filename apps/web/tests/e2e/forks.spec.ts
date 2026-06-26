@@ -1,10 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+async function expectPromptInViewport(page: Page) {
+  const prompt = page.getByLabel("Chat prompt");
+  await expect(prompt).toBeVisible();
+  const box = await prompt.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+}
 
 test("Forks learning flow renders", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Forks", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expectPromptInViewport(page);
 });
 
 test("creates a project and opens its first thread", async ({ page }, testInfo) => {
@@ -19,7 +31,7 @@ test("creates a project and opens its first thread", async ({ page }, testInfo) 
   await expect(page).toHaveURL(/thread=/);
   await expect(page.getByTestId("project-item").filter({ has: page.getByRole("link", { name: title }) }).getByRole("link", { name: "First learning thread" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "First learning thread" })).toBeVisible();
-  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expectPromptInViewport(page);
 });
 
 test("deletes projects and threads from the sidebar", async ({ page }, testInfo) => {
@@ -41,16 +53,16 @@ test("deletes projects and threads from the sidebar", async ({ page }, testInfo)
 
   await page.getByRole("button", { name: `Delete project ${projectTitle}` }).click();
   await expect(page.getByRole("link", { name: projectTitle })).toHaveCount(0);
-  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expectPromptInViewport(page);
 });
 
 test("submits a typed prompt with Enter", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Chat prompt").fill("How should I use Forks?");
+  await page.getByLabel("Chat prompt").fill("hi");
   await page.getByLabel("Chat prompt").press("Enter");
 
   await expect(page.getByRole("heading", { name: "Learning Answer" }).last()).toBeVisible();
-  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expectPromptInViewport(page);
   await expect(page).toHaveURL(/project=/);
   await expect(page).toHaveURL(/thread=/);
 });
@@ -63,7 +75,7 @@ test("complete chat branch pin merge export flow", async ({ page, browserName },
   await page.getByRole("button", { name: "Send prompt" }).click();
 
   await expect(page.getByRole("heading", { name: "Distributed Job Queues" }).last()).toBeVisible();
-  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expectPromptInViewport(page);
   await expect(page.getByTestId("branch-panel").getByText("Define idempotent handlers").first()).toBeVisible();
 
   const firstBranch = page.getByTestId("branch-card").filter({ has: page.getByRole("heading", { name: "Define idempotent handlers" }) }).first();
