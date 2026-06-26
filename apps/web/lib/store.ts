@@ -3,6 +3,8 @@ import { createId } from "./ids";
 import { getLlmAdapter } from "./llm";
 import { rankBranches } from "./branch-ranking";
 import { prisma } from "./prisma";
+import { getCachedGeneration, setCachedGeneration } from "./cache";
+import { promptVersions } from "./prompts";
 
 export type ProjectRecord = {
   id: string;
@@ -270,7 +272,17 @@ export async function generateBranch(branchId: string) {
   if (!branch) throw new Error("Branch not found.");
   if (branch.generatedNodeId) return branch;
   const sourceNode = store.nodes.find((node) => node.id === branch.sourceNodeId);
-  const generated = await getLlmAdapter().generateBranch(branch.label, sourceNode?.content ?? branch.preview);
+  const source = sourceNode?.content ?? branch.preview;
+  const cacheInput = {
+    projectId: branch.projectId,
+    taskType: "branch",
+    source: `${branch.label}\n${source}`,
+    modelVersion: process.env.LLM_PROVIDER ?? "mock",
+    promptVersion: promptVersions.branch
+  };
+  const generated =
+    (await getCachedGeneration<{ title: string; content: string }>(cacheInput)) ??
+    (await setCachedGeneration(cacheInput, await getLlmAdapter().generateBranch(branch.label, source)));
   const node: NodeRecord = {
     id: createId("node"),
     projectId: branch.projectId,
@@ -559,7 +571,16 @@ async function generatePrismaBranch(branchId: string) {
   if (!branch) throw new Error("Branch not found.");
   if (branch.generatedNodeId) return branch;
 
-  const generated = await getLlmAdapter().generateBranch(branch.label, branch.sourceNode.content);
+  const cacheInput = {
+    projectId: branch.projectId,
+    taskType: "branch",
+    source: `${branch.label}\n${branch.sourceNode.content}`,
+    modelVersion: process.env.LLM_PROVIDER ?? "mock",
+    promptVersion: promptVersions.branch
+  };
+  const generated =
+    (await getCachedGeneration<{ title: string; content: string }>(cacheInput)) ??
+    (await setCachedGeneration(cacheInput, await getLlmAdapter().generateBranch(branch.label, branch.sourceNode.content)));
   const node = await prisma.node.create({
     data: {
       projectId: branch.projectId,

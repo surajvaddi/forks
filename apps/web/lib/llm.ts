@@ -1,4 +1,5 @@
 import type { BranchDraft, SpanDraft } from "./domain";
+import { answerSystemPrompt, branchInferencePrompt, promptVersions, spanExtractionPrompt } from "./prompts";
 
 export type GenerateAnswerInput = {
   prompt: string;
@@ -128,6 +129,125 @@ export class MockLlmAdapter implements LlmAdapter {
   }
 }
 
+export class OpenAiLlmAdapter implements LlmAdapter {
+  private readonly model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+
+  private async callJson<T>(messages: Array<{ role: "system" | "user"; content: string }>, fallback: T): Promise<T> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return fallback;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: this.model,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages
+      })
+    });
+
+    if (!response.ok) {
+      return fallback;
+    }
+
+    const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content) return fallback;
+
+    try {
+      return JSON.parse(content) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateAnswer(input: GenerateAnswerInput) {
+    const fallback = await new MockLlmAdapter().generateAnswer(input);
+    return this.callJson(
+      [
+        { role: "system", content: answerSystemPrompt() },
+        {
+          role: "user",
+          content: JSON.stringify({
+            promptVersion: promptVersions.answer,
+            projectTitle: input.projectTitle,
+            pinnedContext: input.pinnedContext,
+            prompt: input.prompt,
+            expectedShape: { title: "string", content: "string" }
+          })
+        }
+      ],
+      fallback
+    );
+  }
+
+  async extractSpans(content: string) {
+    const fallback = await new MockLlmAdapter().extractSpans(content);
+    const result = await this.callJson<{ spans: SpanDraft[] }>(
+      [
+        { role: "system", content: "Return JSON only." },
+        { role: "user", content: spanExtractionPrompt(content) }
+      ],
+      { spans: fallback }
+    );
+    return result.spans ?? fallback;
+  }
+
+  async inferBranches(content: string, spans: SpanDraft[]) {
+    const fallback = await new MockLlmAdapter().inferBranches(content, spans);
+    const result = await this.callJson<{ branches: BranchDraft[] }>(
+      [
+        { role: "system", content: "Return JSON only." },
+        { role: "user", content: `${branchInferencePrompt(content)}\n\nSpans:\n${JSON.stringify(spans)}` }
+      ],
+      { branches: fallback }
+    );
+    return result.branches ?? fallback;
+  }
+
+  async generateDefinition(term: string, context: string) {
+    const fallback = await new MockLlmAdapter().generateDefinition(term);
+    const result = await this.callJson<{ definition: string }>(
+      [
+        { role: "system", content: "Return JSON only. Definition must be one short sentence." },
+        { role: "user", content: JSON.stringify({ promptVersion: promptVersions.definition, term, context }) }
+      ],
+      { definition: fallback }
+    );
+    return result.definition;
+  }
+
+  async generateBranch(label: string, source: string) {
+    const fallback = await new MockLlmAdapter().generateBranch(label, source);
+    return this.callJson(
+      [
+        { role: "system", content: "Return JSON only with title and content." },
+        { role: "user", content: JSON.stringify({ promptVersion: promptVersions.branch, label, source }) }
+      ],
+      fallback
+    );
+  }
+
+  async mergeBranches(inputs: Array<{ label: string; content: string }>) {
+    const fallback = await new MockLlmAdapter().mergeBranches(inputs);
+    return this.callJson(
+      [
+        { role: "system", content: "Return JSON only with title and content. Synthesize, do not concatenate." },
+        { role: "user", content: JSON.stringify({ promptVersion: promptVersions.merge, inputs }) }
+      ],
+      fallback
+    );
+  }
+}
+
 export function getLlmAdapter(): LlmAdapter {
+  if (process.env.LLM_PROVIDER === "openai") {
+    return new OpenAiLlmAdapter();
+  }
+
   return new MockLlmAdapter();
 }
