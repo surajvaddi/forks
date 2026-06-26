@@ -3,7 +3,7 @@ import { ProjectSidebar } from "@/components/ProjectSidebar";
 import { RightPanel } from "@/components/RightPanel";
 import { getProjectSnapshot } from "@/lib/store";
 
-export default function Home({
+export default async function Home({
   searchParams
 }: {
   searchParams?: {
@@ -11,7 +11,7 @@ export default function Home({
     thread?: string;
   };
 }) {
-  const snapshot = getProjectSnapshot(searchParams?.project, searchParams?.thread);
+  const snapshot = await getProjectSnapshot(searchParams?.project, searchParams?.thread);
 
   if (!snapshot || !snapshot.activeThread) {
     return <div className="grid min-h-screen place-items-center bg-paper p-8">No project found.</div>;

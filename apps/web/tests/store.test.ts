@@ -7,11 +7,11 @@ describe("chat to knowledge store", () => {
   });
 
   it("persists chat turns, answer node, spans, and latent branches", async () => {
-    const snapshot = getProjectSnapshot();
+    const snapshot = await getProjectSnapshot();
     expect(snapshot?.activeThread).toBeDefined();
 
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "Explain distributed job queues");
-    const updated = getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);
+    const updated = await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);
 
     expect(updated?.turns).toHaveLength(2);
     expect(updated?.nodes.some((node) => node.type === "ASSISTANT_ANSWER")).toBe(true);
@@ -20,9 +20,9 @@ describe("chat to knowledge store", () => {
   });
 
   it("generates a branch lazily and can pin, merge, and export it", async () => {
-    const snapshot = getProjectSnapshot();
+    const snapshot = await getProjectSnapshot();
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "Explain distributed job queues");
-    const withBranches = getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id)!;
+    const withBranches = (await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id))!;
     const branch = withBranches.branches[0];
 
     await generateBranch(branch.id);

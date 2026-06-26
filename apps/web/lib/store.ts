@@ -2,6 +2,7 @@ import type { BranchDraft, BranchStatus, BranchType, PinTarget, SpanDraft } from
 import { createId } from "./ids";
 import { getLlmAdapter } from "./llm";
 import { rankBranches } from "./branch-ranking";
+import { prisma } from "./prisma";
 
 export type ProjectRecord = {
   id: string;
@@ -104,6 +105,10 @@ type StoreState = {
 
 const globalStore = globalThis as unknown as { forksStore?: StoreState };
 
+function shouldUsePrismaStore() {
+  return Boolean(process.env.DATABASE_URL) && process.env.FORKS_STORE !== "memory" && process.env.NODE_ENV !== "test";
+}
+
 function now() {
   return new Date();
 }
@@ -139,7 +144,11 @@ export function resetStoreForTests() {
   globalStore.forksStore = createSeedState();
 }
 
-export function getProjectSnapshot(projectId?: string, threadId?: string) {
+export async function getProjectSnapshot(projectId?: string, threadId?: string) {
+  if (shouldUsePrismaStore()) {
+    return getPrismaProjectSnapshot(projectId, threadId);
+  }
+
   const store = getStore();
   const project = projectId ? store.projects.find((item) => item.id === projectId) : store.projects[0];
   if (!project) return null;
@@ -157,6 +166,10 @@ export function getProjectSnapshot(projectId?: string, threadId?: string) {
 }
 
 export async function createProject(title: string) {
+  if (shouldUsePrismaStore()) {
+    return createPrismaProject(title);
+  }
+
   const store = getStore();
   const stamp = now();
   const project: ProjectRecord = { id: createId("project"), title, createdAt: stamp, updatedAt: stamp };
@@ -167,6 +180,10 @@ export async function createProject(title: string) {
 }
 
 export async function createThread(projectId: string, title: string) {
+  if (shouldUsePrismaStore()) {
+    return createPrismaThread(projectId, title);
+  }
+
   const store = getStore();
   const stamp = now();
   const thread: ThreadRecord = { id: createId("thread"), projectId, title, createdAt: stamp, updatedAt: stamp };
@@ -175,6 +192,10 @@ export async function createThread(projectId: string, title: string) {
 }
 
 export async function handleUserPrompt(projectId: string, threadId: string, prompt: string) {
+  if (shouldUsePrismaStore()) {
+    return handlePrismaUserPrompt(projectId, threadId, prompt);
+  }
+
   const store = getStore();
   const project = store.projects.find((item) => item.id === projectId);
   const thread = store.threads.find((item) => item.id === threadId && item.projectId === projectId);
@@ -240,6 +261,10 @@ export async function generateDefinition(term: string, context: string) {
 }
 
 export async function generateBranch(branchId: string) {
+  if (shouldUsePrismaStore()) {
+    return generatePrismaBranch(branchId);
+  }
+
   const store = getStore();
   const branch = store.branches.find((item) => item.id === branchId);
   if (!branch) throw new Error("Branch not found.");
@@ -264,6 +289,10 @@ export async function generateBranch(branchId: string) {
 }
 
 export async function togglePin(projectId: string, targetId: string, targetType: PinTarget, label: string, threadId?: string) {
+  if (shouldUsePrismaStore()) {
+    return togglePrismaPin(projectId, targetId, targetType, label, threadId);
+  }
+
   const store = getStore();
   const existing = store.pins.find((pin) => pin.projectId === projectId && pin.targetId === targetId && pin.targetType === targetType);
   if (existing) {
@@ -276,6 +305,10 @@ export async function togglePin(projectId: string, targetId: string, targetType:
 }
 
 export async function mergePins(projectId: string) {
+  if (shouldUsePrismaStore()) {
+    return mergePrismaPins(projectId);
+  }
+
   const store = getStore();
   const pins = store.pins.filter((pin) => pin.projectId === projectId);
   const inputs = pins.map((pin) => {
@@ -298,6 +331,10 @@ export async function mergePins(projectId: string) {
 }
 
 export async function updateNote(noteId: string, content: string) {
+  if (shouldUsePrismaStore()) {
+    return updatePrismaNote(noteId, content);
+  }
+
   const store = getStore();
   const note = store.notes.find((item) => item.id === noteId);
   if (!note) throw new Error("Note not found.");
@@ -307,6 +344,10 @@ export async function updateNote(noteId: string, content: string) {
 }
 
 export async function exportMarkdown(projectId: string, noteId?: string) {
+  if (shouldUsePrismaStore()) {
+    return exportPrismaMarkdown(projectId, noteId);
+  }
+
   const store = getStore();
   const note = noteId ? store.notes.find((item) => item.id === noteId) : store.notes.find((item) => item.projectId === projectId);
   const content = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
@@ -321,4 +362,269 @@ export async function exportMarkdown(projectId: string, noteId?: string) {
   };
   store.exports.push(record);
   return record;
+}
+
+async function ensurePrismaSeed() {
+  const existing = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
+  if (existing) return existing;
+
+  return prisma.project.create({
+    data: {
+      title: "Distributed Systems Prep",
+      description: "A project for learning fault-tolerant systems through native chat.",
+      threads: {
+        create: {
+          title: "Fault-tolerant job queues"
+        }
+      }
+    }
+  });
+}
+
+async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
+  await ensurePrismaSeed();
+  const projects = await prisma.project.findMany({ orderBy: { createdAt: "asc" } });
+  const project = projectId ? projects.find((item) => item.id === projectId) : projects[0];
+  if (!project) return null;
+  const projectRecord: ProjectRecord = { ...project, description: project.description ?? undefined };
+
+  const threads = await prisma.thread.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
+  const activeThread = threadId ? threads.find((item) => item.id === threadId) : threads[0];
+  const turns = activeThread ? await prisma.chatTurn.findMany({ where: { threadId: activeThread.id }, orderBy: { createdAt: "asc" } }) : [];
+  const nodes = await prisma.node.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
+  const spans = await prisma.span.findMany({ where: { projectId: project.id }, orderBy: { startOffset: "asc" } });
+  const branchesRaw = await prisma.branchCandidate.findMany({
+    where: { projectId: project.id },
+    include: { sourceSpan: true },
+    orderBy: { createdAt: "asc" }
+  });
+  const pins = await prisma.pin.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
+  const notes = await prisma.mergedNote.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "desc" } });
+  const exports = await prisma.exportRecord.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "desc" } });
+
+  const branches: BranchRecord[] = rankBranches(
+    branchesRaw.map((branch) => ({
+      id: branch.id,
+      projectId: branch.projectId,
+      sourceNodeId: branch.sourceNodeId,
+      sourceSpanId: branch.sourceSpanId ?? undefined,
+      sourceSpanText: branch.sourceSpan?.text,
+      sourceThreadId: branch.sourceThreadId ?? undefined,
+      generatedNodeId: branch.generatedNodeId ?? undefined,
+      type: branch.type as BranchType,
+      label: branch.label,
+      preview: branch.preview ?? "",
+      reason: branch.reason,
+      estimatedValue: branch.estimatedValue,
+      estimatedCost: branch.estimatedCost,
+      status: branch.status as BranchStatus,
+      createdAt: branch.createdAt,
+      updatedAt: branch.updatedAt
+    }))
+  );
+
+  return {
+    project: projectRecord,
+    projects: projects.map((item) => ({ ...item, description: item.description ?? undefined })),
+    threads,
+    activeThread,
+    turns: turns.map((turn) => ({ ...turn, role: turn.role as "USER" | "ASSISTANT", nodeId: undefined })),
+    nodes: nodes.map((node) => ({
+      ...node,
+      threadId: node.threadId ?? undefined,
+      chatTurnId: node.chatTurnId ?? undefined,
+      title: node.title ?? undefined,
+      compressedContent: node.compressedContent ?? undefined,
+      type: node.type as NodeRecord["type"]
+    })),
+    spans: spans.map((span) => ({
+      id: span.id,
+      projectId: span.projectId,
+      nodeId: span.nodeId,
+      text: span.text,
+      startOffset: span.startOffset,
+      endOffset: span.endOffset,
+      importanceScore: span.importanceScore,
+      ambiguityScore: span.ambiguityScore
+    })),
+    branches,
+    pins: pins.map((pin) => ({
+      id: pin.id,
+      projectId: pin.projectId,
+      threadId: pin.threadId ?? undefined,
+      targetId: pin.targetId,
+      targetType: pin.targetType as PinTarget,
+      label: pin.label ?? "Pinned item",
+      note: pin.note ?? undefined,
+      createdAt: pin.createdAt
+    })),
+    notes,
+    exports: exports.map((record) => ({
+      id: record.id,
+      projectId: record.projectId,
+      type: "MARKDOWN" as const,
+      title: record.title,
+      content: record.content,
+      sourceIds: record.sourceIds,
+      createdAt: record.createdAt
+    }))
+  };
+}
+
+async function createPrismaProject(title: string) {
+  const project = await prisma.project.create({
+    data: {
+      title,
+      threads: {
+        create: {
+          title: "First learning thread"
+        }
+      }
+    },
+    include: { threads: true }
+  });
+
+  return { project, thread: project.threads[0] };
+}
+
+async function createPrismaThread(projectId: string, title: string) {
+  return prisma.thread.create({ data: { projectId, title } });
+}
+
+async function handlePrismaUserPrompt(projectId: string, threadId: string, prompt: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  const thread = await prisma.thread.findFirst({ where: { id: threadId, projectId } });
+  if (!project || !thread) throw new Error("Project thread not found.");
+
+  const userTurn = await prisma.chatTurn.create({ data: { projectId, threadId, role: "USER", content: prompt } });
+  const pinnedContext = (await prisma.pin.findMany({ where: { projectId } })).map((pin) => pin.label ?? "");
+  const llm = getLlmAdapter();
+  const answer = await llm.generateAnswer({ prompt, projectTitle: project.title, pinnedContext });
+  const assistantTurn = await prisma.chatTurn.create({ data: { projectId, threadId, role: "ASSISTANT", content: answer.content } });
+  const node = await prisma.node.create({
+    data: {
+      projectId,
+      threadId,
+      chatTurnId: assistantTurn.id,
+      type: "ASSISTANT_ANSWER",
+      title: answer.title,
+      content: answer.content
+    }
+  });
+
+  const spanDrafts = await llm.extractSpans(answer.content);
+  const spans = await Promise.all(
+    spanDrafts.map((span) =>
+      prisma.span.create({
+        data: {
+          projectId,
+          nodeId: node.id,
+          text: span.text,
+          startOffset: span.startOffset,
+          endOffset: span.endOffset,
+          importanceScore: span.importanceScore,
+          ambiguityScore: span.ambiguityScore
+        }
+      })
+    )
+  );
+
+  const branchDrafts = await llm.inferBranches(answer.content, spanDrafts);
+  const branches = await Promise.all(
+    branchDrafts.map((branch) => {
+      const sourceSpan = spans.find((span) => span.text.toLowerCase() === branch.sourceSpanText?.toLowerCase());
+      return prisma.branchCandidate.create({
+        data: {
+          projectId,
+          sourceNodeId: node.id,
+          sourceSpanId: sourceSpan?.id,
+          sourceThreadId: threadId,
+          type: branch.type,
+          label: branch.label,
+          preview: branch.preview,
+          reason: branch.reason,
+          estimatedValue: branch.estimatedValue,
+          estimatedCost: branch.estimatedCost,
+          status: "LATENT"
+        }
+      });
+    })
+  );
+
+  return { userTurn, assistantTurn, node, spans, branches };
+}
+
+async function generatePrismaBranch(branchId: string) {
+  const branch = await prisma.branchCandidate.findUnique({ where: { id: branchId }, include: { sourceNode: true } });
+  if (!branch) throw new Error("Branch not found.");
+  if (branch.generatedNodeId) return branch;
+
+  const generated = await getLlmAdapter().generateBranch(branch.label, branch.sourceNode.content);
+  const node = await prisma.node.create({
+    data: {
+      projectId: branch.projectId,
+      threadId: branch.sourceThreadId,
+      type: "DEFINITION",
+      title: generated.title,
+      content: generated.content
+    }
+  });
+
+  return prisma.branchCandidate.update({
+    where: { id: branchId },
+    data: { generatedNodeId: node.id, status: "GENERATED" }
+  });
+}
+
+async function togglePrismaPin(projectId: string, targetId: string, targetType: PinTarget, label: string, threadId?: string) {
+  const existing = await prisma.pin.findUnique({ where: { projectId_targetId_targetType: { projectId, targetId, targetType } } });
+  if (existing) {
+    await prisma.pin.delete({ where: { id: existing.id } });
+    return null;
+  }
+
+  return prisma.pin.create({ data: { projectId, threadId, targetId, targetType, label } });
+}
+
+async function mergePrismaPins(projectId: string) {
+  const pins = await prisma.pin.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+  const branches = await prisma.branchCandidate.findMany({ where: { projectId, id: { in: pins.map((pin) => pin.targetId) } } });
+  const generatedNodeIds = branches.map((branch) => branch.generatedNodeId).filter(Boolean) as string[];
+  const nodes = await prisma.node.findMany({ where: { projectId, OR: [{ id: { in: pins.map((pin) => pin.targetId) } }, { id: { in: generatedNodeIds } }] } });
+  const inputs = pins.map((pin) => {
+    const branch = branches.find((item) => item.id === pin.targetId);
+    const node = branch?.generatedNodeId ? nodes.find((item) => item.id === branch.generatedNodeId) : nodes.find((item) => item.id === pin.targetId);
+    return { label: pin.label ?? "Pinned item", content: node?.content ?? pin.note ?? pin.label ?? "Pinned item" };
+  });
+  const merged = await getLlmAdapter().mergeBranches(inputs);
+
+  return prisma.mergedNote.create({
+    data: {
+      projectId,
+      title: merged.title,
+      content: merged.content,
+      sourceIds: pins.map((pin) => pin.targetId)
+    }
+  });
+}
+
+async function updatePrismaNote(noteId: string, content: string) {
+  return prisma.mergedNote.update({ where: { id: noteId }, data: { content } });
+}
+
+async function exportPrismaMarkdown(projectId: string, noteId?: string) {
+  const note = noteId
+    ? await prisma.mergedNote.findUnique({ where: { id: noteId } })
+    : await prisma.mergedNote.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
+  const content = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
+
+  return prisma.exportRecord.create({
+    data: {
+      projectId,
+      type: "MARKDOWN",
+      title: note?.title ?? "Forks Project Export",
+      content,
+      sourceIds: note ? [note.id] : []
+    }
+  });
 }
