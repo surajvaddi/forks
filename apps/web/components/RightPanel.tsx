@@ -1,5 +1,5 @@
 import { Download, GitBranch, Layers3, Pin, Sparkles } from "lucide-react";
-import { expandBranchAction, exportMarkdownAction, mergePinsAction, togglePinAction, updateNoteAction } from "@/app/actions";
+import { expandBranchAction, exportMarkdownAction, exportPdfAction, mergePinsAction, togglePinAction, updateNoteAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import type { BranchRecord, ExportRecord, MergedNoteRecord, NodeRecord, PinRecord, ProjectRecord } from "@/lib/store";
 
@@ -114,6 +114,13 @@ export function RightPanel({
                     <input type="hidden" name="noteId" value={note.id} />
                     <SubmitButton className="inline-flex items-center gap-1 rounded border border-line bg-paper px-2.5 py-1.5 text-xs">
                       <Download size={13} /> Export Markdown
+                    </SubmitButton>
+                  </form>
+                  <form action={exportPdfAction} className="mt-2">
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input type="hidden" name="noteId" value={note.id} />
+                    <SubmitButton className="inline-flex items-center gap-1 rounded border border-line bg-paper px-2.5 py-1.5 text-xs">
+                      <Download size={13} /> Export PDF
                     </SubmitButton>
                   </form>
                 </div>

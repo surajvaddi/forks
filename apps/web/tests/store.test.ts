@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { exportMarkdown, generateBranch, getProjectSnapshot, handleUserPrompt, mergePins, resetStoreForTests, togglePin } from "@/lib/store";
+import { exportMarkdown, exportPdf, generateBranch, getProjectSnapshot, handleUserPrompt, mergePins, resetStoreForTests, togglePin } from "@/lib/store";
 
 describe("chat to knowledge store", () => {
   beforeEach(() => {
@@ -29,9 +29,12 @@ describe("chat to knowledge store", () => {
     await togglePin(withBranches.project.id, branch.id, "BRANCH", branch.label, withBranches.activeThread!.id);
     const note = await mergePins(withBranches.project.id);
     const exported = await exportMarkdown(withBranches.project.id, note.id);
+    const pdf = await exportPdf(withBranches.project.id, note.id);
 
     expect(note.content).toContain("#");
     expect(exported.type).toBe("MARKDOWN");
     expect(exported.content).toContain("What to remember");
+    expect(pdf.type).toBe("PDF");
+    expect(pdf.content.startsWith("%PDF-1.4")).toBe(true);
   });
 });

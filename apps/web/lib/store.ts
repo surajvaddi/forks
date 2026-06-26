@@ -5,6 +5,7 @@ import { rankBranches } from "./branch-ranking";
 import { prisma } from "./prisma";
 import { getCachedGeneration, setCachedGeneration } from "./cache";
 import { promptVersions } from "./prompts";
+import { createSimplePdf } from "./pdf";
 
 export type ProjectRecord = {
   id: string;
@@ -86,7 +87,7 @@ export type MergedNoteRecord = {
 export type ExportRecord = {
   id: string;
   projectId: string;
-  type: "MARKDOWN";
+  type: "MARKDOWN" | "PDF";
   title: string;
   content: string;
   sourceIds: string[];
@@ -376,6 +377,27 @@ export async function exportMarkdown(projectId: string, noteId?: string) {
   return record;
 }
 
+export async function exportPdf(projectId: string, noteId?: string) {
+  if (shouldUsePrismaStore()) {
+    return exportPrismaPdf(projectId, noteId);
+  }
+
+  const store = getStore();
+  const note = noteId ? store.notes.find((item) => item.id === noteId) : store.notes.find((item) => item.projectId === projectId);
+  const source = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
+  const record: ExportRecord = {
+    id: createId("export"),
+    projectId,
+    type: "PDF",
+    title: `${note?.title ?? "Forks Project Export"}.pdf`,
+    content: createSimplePdf(note?.title ?? "Forks Project Export", source),
+    sourceIds: note ? [note.id] : [],
+    createdAt: now()
+  };
+  store.exports.push(record);
+  return record;
+}
+
 async function ensurePrismaSeed() {
   const existing = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
   if (existing) return existing;
@@ -474,7 +496,7 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
     exports: exports.map((record) => ({
       id: record.id,
       projectId: record.projectId,
-      type: "MARKDOWN" as const,
+      type: record.type as "MARKDOWN" | "PDF",
       title: record.title,
       content: record.content,
       sourceIds: record.sourceIds,
@@ -645,6 +667,23 @@ async function exportPrismaMarkdown(projectId: string, noteId?: string) {
       type: "MARKDOWN",
       title: note?.title ?? "Forks Project Export",
       content,
+      sourceIds: note ? [note.id] : []
+    }
+  });
+}
+
+async function exportPrismaPdf(projectId: string, noteId?: string) {
+  const note = noteId
+    ? await prisma.mergedNote.findUnique({ where: { id: noteId } })
+    : await prisma.mergedNote.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
+  const source = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
+
+  return prisma.exportRecord.create({
+    data: {
+      projectId,
+      type: "PDF",
+      title: `${note?.title ?? "Forks Project Export"}.pdf`,
+      content: createSimplePdf(note?.title ?? "Forks Project Export", source),
       sourceIds: note ? [note.id] : []
     }
   });

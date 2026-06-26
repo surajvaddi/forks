@@ -5,6 +5,7 @@ import {
   createProject,
   createThread,
   exportMarkdown,
+  exportPdf,
   generateBranch,
   handleUserPrompt,
   mergePins,
@@ -80,5 +81,13 @@ export async function exportMarkdownAction(formData: FormData) {
   const noteId = getString(formData, "noteId") || undefined;
   if (!projectId) return;
   await exportMarkdown(projectId, noteId);
+  revalidatePath("/");
+}
+
+export async function exportPdfAction(formData: FormData) {
+  const projectId = getString(formData, "projectId");
+  const noteId = getString(formData, "noteId") || undefined;
+  if (!projectId) return;
+  await exportPdf(projectId, noteId);
   revalidatePath("/");
 }
