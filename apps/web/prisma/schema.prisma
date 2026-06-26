@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  threads Thread[]
+  nodes   Node[]
+  spans   Span[]
+  concepts Concept[]
+  branches BranchCandidate[]
+  pins Pin[]
+  notes MergedNote[]
+  exports ExportRecord[]
+}
+
+model Thread {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  turns   ChatTurn[]
+  nodes   Node[]
+  pins    Pin[]
+}
+
+model ChatTurn {
+  id        String   @id @default(cuid())
+  projectId String
+  threadId String
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now())
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  node   Node?
+}
+
+model Node {
+  id                String   @id @default(cuid())
+  projectId         String
+  threadId          String?
+  chatTurnId        String?  @unique
+  type              NodeType
+  title             String?
+  content           String
+  compressedContent String?
+  metadata          Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  thread  Thread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  chatTurn ChatTurn? @relation(fields: [chatTurnId], references: [id], onDelete: SetNull)
+  spans Span[]
+  sourceBranches BranchCandidate[] @relation("SourceNode")
+  generatedBranches BranchCandidate[] @relation("GeneratedNode")
+}
+
+model Span {
+  id              String @id @default(cuid())
+  projectId       String
+  nodeId          String
+  text            String
+  startOffset     Int
+  endOffset       Int
+  importanceScore Float
+  ambiguityScore  Float
+  conceptId       String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  node    Node    @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  branches BranchCandidate[]
+}
+
+model Concept {
+  id              String   @id @default(cuid())
+  projectId       String
+  canonicalName   String
+  aliases         String[]
+  shortDefinition String?
+  confidenceScore Float    @default(0.75)
+  masteryScore    Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  spans Span[]
+
+  @@unique([projectId, canonicalName])
+}
+
+model BranchCandidate {
+  id             String       @id @default(cuid())
+  projectId      String
+  sourceNodeId   String
+  sourceSpanId   String?
+  sourceThreadId String?
+  type           BranchType
+  label          String
+  preview        String?
+  reason         String
+  estimatedValue Float
+  estimatedCost  Float
+  generatedNodeId String?
+  status         BranchStatus @default(LATENT)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceNode Node @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  sourceSpan Span? @relation(fields: [sourceSpanId], references: [id], onDelete: SetNull)
+  generatedNode Node? @relation("GeneratedNode", fields: [generatedNodeId], references: [id], onDelete: SetNull)
+}
+
+model Pin {
+  id         String    @id @default(cuid())
+  projectId  String
+  threadId   String?
+  targetId   String
+  targetType PinTarget
+  label      String?
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  thread Thread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, targetId, targetType])
+}
+
+model MergedNote {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  content   String
+  sourceIds String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ExportRecord {
+  id        String   @id @default(cuid())
+  projectId String
+  type      ExportType
+  title     String
+  content   String
+  sourceIds String[]
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum NodeType {
+  USER_PROMPT
+  ASSISTANT_ANSWER
+  DEFINITION
+  EXAMPLE
+  ANALOGY
+  PROOF
+  IMPLEMENTATION
+  VISUAL_DESCRIPTION
+  ARTIFACT
+  ANNOTATION
+  SUMMARY
+  MERGED_NOTE
+}
+
+enum BranchType {
+  DEFINITION
+  EXAMPLE
+  ANALOGY
+  FORMALIZATION
+  PROOF
+  IMPLEMENTATION
+  VISUAL
+  CONTRAST
+  PREREQUISITE
+  PITFALL
+  EDGE_CASE
+  ARTIFACT
+  SUMMARY
+  MERGE
+}
+
+enum BranchStatus {
+  LATENT
+  PREVIEWED
+  GENERATED
+  PINNED
+  DISCARDED
+}
+
+enum PinTarget {
+  NODE
+  SPAN
+  CONCEPT
+  BRANCH
+  ARTIFACT
+  NOTE
+}
+
+enum ExportType {
+  MARKDOWN
+  PDF
+}
