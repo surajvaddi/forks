@@ -44,6 +44,14 @@ test("deletes projects and threads from the sidebar", async ({ page }, testInfo)
   await expect(page.getByLabel("Chat prompt")).toBeVisible();
 });
 
+test("submits a typed prompt with Enter", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Chat prompt").fill("How should I use Forks?");
+  await page.getByLabel("Chat prompt").press("Enter");
+
+  await expect(page.getByRole("heading", { name: "Learning Answer" }).last()).toBeVisible();
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
