@@ -22,14 +22,24 @@ describe("chat to knowledge store", () => {
   it("persists chat turns, answer node, spans, and latent branches", async () => {
     const snapshot = await getProjectSnapshot();
     expect(snapshot?.activeThread).toBeDefined();
+    const initialTurns = snapshot!.turns.length;
 
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "Explain distributed job queues");
     const updated = await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);
 
-    expect(updated?.turns).toHaveLength(2);
+    expect(updated?.turns).toHaveLength(initialTurns + 2);
     expect(updated?.nodes.some((node) => node.type === "ASSISTANT_ANSWER")).toBe(true);
     expect(updated?.spans.length).toBeGreaterThan(0);
     expect(updated?.branches.every((branch) => branch.status === "LATENT")).toBe(true);
+  });
+
+  it("preloads Forks-purpose learning content", async () => {
+    const snapshot = await getProjectSnapshot();
+
+    expect(snapshot?.project.title).toBe("Learning With Forks");
+    expect(snapshot?.activeThread?.title).toBe("How Forks helps you learn");
+    expect(snapshot?.nodes.some((node) => node.title === "Learning Answer")).toBe(true);
+    expect(snapshot?.nodes.some((node) => node.content.includes("reusable project knowledge"))).toBe(true);
   });
 
   it("generates a branch lazily and can pin, merge, and export it", async () => {

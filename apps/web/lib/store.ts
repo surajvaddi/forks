@@ -128,19 +128,151 @@ function createSeedState(): StoreState {
   const createdAt = now();
   const project: ProjectRecord = {
     id: "project_seed",
-    title: "Distributed Systems Prep",
-    description: "A project for learning fault-tolerant systems through native chat.",
+    title: "Learning With Forks",
+    description: "A starter project showing how chat becomes reusable project knowledge.",
     createdAt,
     updatedAt: createdAt
   };
   const thread: ThreadRecord = {
     id: "thread_seed",
     projectId: project.id,
-    title: "Fault-tolerant job queues",
+    title: "How Forks helps you learn",
     createdAt,
     updatedAt: createdAt
   };
-  return { projects: [project], threads: [thread], turns: [], nodes: [], spans: [], branches: [], pins: [], notes: [], exports: [] };
+  const userTurn: ChatTurnRecord = {
+    id: "turn_seed_user",
+    projectId: project.id,
+    threadId: thread.id,
+    role: "USER",
+    content: "What is the useful way to learn with Forks?",
+    createdAt
+  };
+  const answerContent =
+    "The useful way to learn this is to identify the core concept, notice the hidden prerequisite, and branch only when a detail becomes confusing. Forks keeps the chat natural while turning the answer into reusable project knowledge.";
+  const answerNode: NodeRecord = {
+    id: "node_seed_answer",
+    projectId: project.id,
+    threadId: thread.id,
+    chatTurnId: "turn_seed_assistant",
+    type: "ASSISTANT_ANSWER",
+    title: "Learning Answer",
+    content: answerContent,
+    createdAt,
+    updatedAt: createdAt
+  };
+  const assistantTurn: ChatTurnRecord = {
+    id: "turn_seed_assistant",
+    projectId: project.id,
+    threadId: thread.id,
+    role: "ASSISTANT",
+    content: answerContent,
+    nodeId: answerNode.id,
+    createdAt
+  };
+  const hiddenPrerequisiteStart = answerContent.indexOf("hidden prerequisite");
+  const projectKnowledgeStart = answerContent.indexOf("reusable project knowledge");
+  const coreConceptStart = answerContent.indexOf("core concept");
+  const spans: SpanRecord[] = [
+    {
+      id: "span_seed_core_concept",
+      projectId: project.id,
+      nodeId: answerNode.id,
+      text: "core concept",
+      startOffset: coreConceptStart,
+      endOffset: coreConceptStart + "core concept".length,
+      importanceScore: 0.87,
+      ambiguityScore: 0.44,
+      shortDefinition: "The main idea a learner should understand before branching into details."
+    },
+    {
+      id: "span_seed_hidden_prerequisite",
+      projectId: project.id,
+      nodeId: answerNode.id,
+      text: "hidden prerequisite",
+      startOffset: hiddenPrerequisiteStart,
+      endOffset: hiddenPrerequisiteStart + "hidden prerequisite".length,
+      importanceScore: 0.86,
+      ambiguityScore: 0.65,
+      shortDefinition: "A required idea the explanation assumes but has not explained yet."
+    },
+    {
+      id: "span_seed_project_knowledge",
+      projectId: project.id,
+      nodeId: answerNode.id,
+      text: "reusable project knowledge",
+      startOffset: projectKnowledgeStart,
+      endOffset: projectKnowledgeStart + "reusable project knowledge".length,
+      importanceScore: 0.91,
+      ambiguityScore: 0.35,
+      shortDefinition: "Knowledge saved inside the project so it can be pinned, merged, and exported later."
+    }
+  ];
+  const branches: BranchRecord[] = [
+    {
+      id: "branch_seed_core_concept",
+      projectId: project.id,
+      sourceNodeId: answerNode.id,
+      sourceSpanId: "span_seed_core_concept",
+      sourceSpanText: "core concept",
+      sourceThreadId: thread.id,
+      type: "DEFINITION",
+      label: "Define core concept",
+      preview: "Clarify the central idea before exploring details.",
+      reason: "Core concepts anchor useful learning branches.",
+      estimatedValue: 0.89,
+      estimatedCost: 0.14,
+      status: "LATENT",
+      createdAt,
+      updatedAt: createdAt
+    },
+    {
+      id: "branch_seed_hidden_prerequisite",
+      projectId: project.id,
+      sourceNodeId: answerNode.id,
+      sourceSpanId: "span_seed_hidden_prerequisite",
+      sourceSpanText: "hidden prerequisite",
+      sourceThreadId: thread.id,
+      type: "PREREQUISITE",
+      label: "Find the hidden prerequisite",
+      preview: "Identify the idea you need before the current explanation fully clicks.",
+      reason: "Forks should surface missing prerequisites at the moment of confusion.",
+      estimatedValue: 0.92,
+      estimatedCost: 0.18,
+      status: "LATENT",
+      createdAt,
+      updatedAt: createdAt
+    },
+    {
+      id: "branch_seed_project_knowledge",
+      projectId: project.id,
+      sourceNodeId: answerNode.id,
+      sourceSpanId: "span_seed_project_knowledge",
+      sourceSpanText: "reusable project knowledge",
+      sourceThreadId: thread.id,
+      type: "SUMMARY",
+      label: "Explain reusable project knowledge",
+      preview: "Show how chat turns become saved concepts, pins, notes, and exports.",
+      reason: "This branch explains the purpose of Forks itself.",
+      estimatedValue: 0.94,
+      estimatedCost: 0.16,
+      status: "LATENT",
+      createdAt,
+      updatedAt: createdAt
+    }
+  ];
+
+  return {
+    projects: [project],
+    threads: [thread],
+    turns: [userTurn, assistantTurn],
+    nodes: [answerNode],
+    spans,
+    branches,
+    pins: [],
+    notes: [],
+    exports: []
+  };
 }
 
 function reviveDate(value: unknown) {
@@ -167,10 +299,30 @@ function readFileBackedStore() {
   }
 
   try {
-    return reviveStore(JSON.parse(readFileSync(devStorePath, "utf8")) as StoreState);
+    return migrateSeedStore(reviveStore(JSON.parse(readFileSync(devStorePath, "utf8")) as StoreState));
   } catch {
     return null;
   }
+}
+
+function migrateSeedStore(store: StoreState) {
+  const seedProject = store.projects.find((project) => project.id === "project_seed");
+  if (!seedProject || seedProject.title === "Learning With Forks") {
+    return store;
+  }
+
+  const seed = createSeedState();
+  return {
+    projects: [...seed.projects, ...store.projects.filter((project) => project.id !== "project_seed")],
+    threads: [...seed.threads, ...store.threads.filter((thread) => thread.projectId !== "project_seed")],
+    turns: [...seed.turns, ...store.turns.filter((turn) => turn.projectId !== "project_seed")],
+    nodes: [...seed.nodes, ...store.nodes.filter((node) => node.projectId !== "project_seed")],
+    spans: [...seed.spans, ...store.spans.filter((span) => span.projectId !== "project_seed")],
+    branches: [...seed.branches, ...store.branches.filter((branch) => branch.projectId !== "project_seed")],
+    pins: store.pins.filter((pin) => pin.projectId !== "project_seed"),
+    notes: store.notes.filter((note) => note.projectId !== "project_seed"),
+    exports: store.exports.filter((record) => record.projectId !== "project_seed")
+  };
 }
 
 function persistFileBackedStore(store: StoreState) {
@@ -182,6 +334,12 @@ export function getStore() {
   if (!globalStore.forksStore) {
     globalStore.forksStore = readFileBackedStore() ?? createSeedState();
     persistFileBackedStore(globalStore.forksStore);
+  } else {
+    const migratedStore = migrateSeedStore(globalStore.forksStore);
+    if (migratedStore !== globalStore.forksStore) {
+      globalStore.forksStore = migratedStore;
+      persistFileBackedStore(globalStore.forksStore);
+    }
   }
 
   return globalStore.forksStore;
@@ -535,17 +693,7 @@ async function ensurePrismaSeed() {
   const existing = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
   if (existing) return existing;
 
-  return prisma.project.create({
-    data: {
-      title: "Distributed Systems Prep",
-      description: "A project for learning fault-tolerant systems through native chat.",
-      threads: {
-        create: {
-          title: "Fault-tolerant job queues"
-        }
-      }
-    }
-  });
+  return createPrismaSeedProject();
 }
 
 async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
@@ -655,6 +803,80 @@ async function createPrismaProject(title: string) {
   return { project, thread: project.threads[0] };
 }
 
+async function createPrismaSeedProject() {
+  const seed = createSeedState();
+  const project = seed.projects[0];
+  const thread = seed.threads[0];
+  const userTurn = seed.turns.find((turn) => turn.role === "USER")!;
+  const assistantTurn = seed.turns.find((turn) => turn.role === "ASSISTANT")!;
+  const answerNode = seed.nodes[0];
+
+  await prisma.project.create({
+    data: {
+      id: project.id,
+      title: project.title,
+      description: project.description,
+      threads: {
+        create: {
+          id: thread.id,
+          title: thread.title
+        }
+      }
+    }
+  });
+  await prisma.chatTurn.createMany({
+    data: [
+      { id: userTurn.id, projectId: project.id, threadId: thread.id, role: "USER", content: userTurn.content, createdAt: userTurn.createdAt },
+      { id: assistantTurn.id, projectId: project.id, threadId: thread.id, role: "ASSISTANT", content: assistantTurn.content, createdAt: assistantTurn.createdAt }
+    ]
+  });
+  await prisma.node.create({
+    data: {
+      id: answerNode.id,
+      projectId: project.id,
+      threadId: thread.id,
+      chatTurnId: assistantTurn.id,
+      type: "ASSISTANT_ANSWER",
+      title: answerNode.title,
+      content: answerNode.content,
+      createdAt: answerNode.createdAt,
+      updatedAt: answerNode.updatedAt
+    }
+  });
+  await prisma.span.createMany({
+    data: seed.spans.map((span) => ({
+      id: span.id,
+      projectId: span.projectId,
+      nodeId: span.nodeId,
+      text: span.text,
+      startOffset: span.startOffset,
+      endOffset: span.endOffset,
+      importanceScore: span.importanceScore,
+      ambiguityScore: span.ambiguityScore
+    }))
+  });
+  await prisma.branchCandidate.createMany({
+    data: seed.branches.map((branch) => ({
+      id: branch.id,
+      projectId: branch.projectId,
+      sourceNodeId: branch.sourceNodeId,
+      sourceSpanId: branch.sourceSpanId,
+      sourceThreadId: branch.sourceThreadId,
+      type: branch.type,
+      label: branch.label,
+      preview: branch.preview,
+      reason: branch.reason,
+      estimatedValue: branch.estimatedValue,
+      estimatedCost: branch.estimatedCost,
+      status: branch.status,
+      createdAt: branch.createdAt,
+      updatedAt: branch.updatedAt
+    }))
+  });
+
+  return project;
+}
+
 async function createPrismaThread(projectId: string, title: string) {
   return prisma.thread.create({ data: { projectId, title } });
 }
@@ -664,9 +886,10 @@ async function deletePrismaProject(projectId: string) {
   const remainingProject = await prisma.project.findFirst({ orderBy: { createdAt: "asc" }, include: { threads: { orderBy: { createdAt: "asc" } } } });
 
   if (!remainingProject) {
-    const created = await createPrismaProject("Distributed Systems Prep");
+    const createdProject = await createPrismaSeedProject();
+    const createdThread = await prisma.thread.findFirst({ where: { projectId: createdProject.id }, orderBy: { createdAt: "asc" } });
     logForksEvent("project.deleted", { projectId, provider: "prisma" });
-    return { project: created.project, thread: created.thread };
+    return { project: createdProject, thread: createdThread ?? undefined };
   }
 
   logForksEvent("project.deleted", { projectId, provider: "prisma" });
