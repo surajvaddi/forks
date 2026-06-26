@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { BranchDraft, BranchStatus, BranchType, PinTarget, SpanDraft } from "./domain";
 import { createId } from "./ids";
 import { getLlmAdapter } from "./llm";
@@ -108,9 +110,14 @@ type StoreState = {
 };
 
 const globalStore = globalThis as unknown as { forksStore?: StoreState };
+const devStorePath = join(process.cwd(), "../../.forks-store.json");
 
 function shouldUsePrismaStore() {
   return Boolean(process.env.DATABASE_URL) && process.env.FORKS_STORE !== "memory" && process.env.NODE_ENV !== "test";
+}
+
+function shouldUseFileBackedMemoryStore() {
+  return !shouldUsePrismaStore() && process.env.NODE_ENV !== "test";
 }
 
 function now() {
@@ -136,9 +143,45 @@ function createSeedState(): StoreState {
   return { projects: [project], threads: [thread], turns: [], nodes: [], spans: [], branches: [], pins: [], notes: [], exports: [] };
 }
 
+function reviveDate(value: unknown) {
+  return typeof value === "string" ? new Date(value) : value instanceof Date ? value : now();
+}
+
+function reviveStore(raw: StoreState): StoreState {
+  return {
+    projects: raw.projects.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    threads: raw.threads.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    turns: raw.turns.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt) })),
+    nodes: raw.nodes.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    spans: raw.spans,
+    branches: raw.branches.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    pins: raw.pins.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt) })),
+    notes: raw.notes.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    exports: raw.exports.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt) }))
+  };
+}
+
+function readFileBackedStore() {
+  if (!shouldUseFileBackedMemoryStore() || !existsSync(devStorePath)) {
+    return null;
+  }
+
+  try {
+    return reviveStore(JSON.parse(readFileSync(devStorePath, "utf8")) as StoreState);
+  } catch {
+    return null;
+  }
+}
+
+function persistFileBackedStore(store: StoreState) {
+  if (!shouldUseFileBackedMemoryStore()) return;
+  writeFileSync(devStorePath, JSON.stringify(store, null, 2));
+}
+
 export function getStore() {
   if (!globalStore.forksStore) {
-    globalStore.forksStore = createSeedState();
+    globalStore.forksStore = readFileBackedStore() ?? createSeedState();
+    persistFileBackedStore(globalStore.forksStore);
   }
 
   return globalStore.forksStore;
@@ -146,6 +189,11 @@ export function getStore() {
 
 export function resetStoreForTests() {
   globalStore.forksStore = createSeedState();
+}
+
+function persistCurrentStore() {
+  const store = getStore();
+  persistFileBackedStore(store);
 }
 
 export async function getProjectSnapshot(projectId?: string, threadId?: string) {
@@ -180,6 +228,7 @@ export async function createProject(title: string) {
   const thread: ThreadRecord = { id: createId("thread"), projectId: project.id, title: "First learning thread", createdAt: stamp, updatedAt: stamp };
   store.projects.push(project);
   store.threads.push(thread);
+  persistCurrentStore();
   return { project, thread };
 }
 
@@ -192,6 +241,7 @@ export async function createThread(projectId: string, title: string) {
   const stamp = now();
   const thread: ThreadRecord = { id: createId("thread"), projectId, title, createdAt: stamp, updatedAt: stamp };
   store.threads.push(thread);
+  persistCurrentStore();
   return thread;
 }
 
@@ -258,6 +308,7 @@ export async function handleUserPrompt(projectId: string, threadId: string, prom
   });
   store.branches.push(...branches);
   logForksEvent("chat.answer_generated", { projectId, threadId, spans: spans.length, branches: branches.length, provider: "memory" });
+  persistCurrentStore();
 
   return { userTurn, assistantTurn, node, spans, branches };
 }
@@ -302,6 +353,7 @@ export async function generateBranch(branchId: string) {
   branch.status = "GENERATED";
   branch.updatedAt = now();
   logForksEvent("branch.generated", { projectId: branch.projectId, branchId: branch.id, provider: "memory" });
+  persistCurrentStore();
   return branch;
 }
 
@@ -315,11 +367,13 @@ export async function togglePin(projectId: string, targetId: string, targetType:
   if (existing) {
     store.pins = store.pins.filter((pin) => pin.id !== existing.id);
     logForksEvent("pin.toggled", { projectId, targetType, pinned: false, provider: "memory" });
+    persistCurrentStore();
     return null;
   }
   const pin: PinRecord = { id: createId("pin"), projectId, threadId, targetId, targetType, label, createdAt: now() };
   store.pins.push(pin);
   logForksEvent("pin.toggled", { projectId, targetType, pinned: true, provider: "memory" });
+  persistCurrentStore();
   return pin;
 }
 
@@ -347,6 +401,7 @@ export async function mergePins(projectId: string) {
   };
   store.notes.push(note);
   logForksEvent("note.merged", { projectId, sources: note.sourceIds.length, provider: "memory" });
+  persistCurrentStore();
   return note;
 }
 
@@ -360,6 +415,7 @@ export async function updateNote(noteId: string, content: string) {
   if (!note) throw new Error("Note not found.");
   note.content = content;
   note.updatedAt = now();
+  persistCurrentStore();
   return note;
 }
 
@@ -382,6 +438,7 @@ export async function exportMarkdown(projectId: string, noteId?: string) {
   };
   store.exports.push(record);
   logForksEvent("export.created", { projectId, type: "MARKDOWN", provider: "memory" });
+  persistCurrentStore();
   return record;
 }
 
@@ -404,6 +461,7 @@ export async function exportPdf(projectId: string, noteId?: string) {
   };
   store.exports.push(record);
   logForksEvent("export.created", { projectId, type: "PDF", provider: "memory" });
+  persistCurrentStore();
   return record;
 }
 
