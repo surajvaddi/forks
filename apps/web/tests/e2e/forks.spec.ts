@@ -12,6 +12,10 @@ async function expectPromptInViewport(page: Page) {
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.request.post("/api/test/reset");
+});
+
 test("Forks learning flow renders", async ({ page }) => {
   await page.goto("/");
 
@@ -70,6 +74,7 @@ test("submits a typed prompt with Enter", async ({ page }) => {
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
+  await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto("/");
   await page.getByLabel("Chat prompt").fill("Explain distributed job queues");
   await page.getByRole("button", { name: "Send prompt" }).click();
@@ -94,5 +99,11 @@ test("complete chat branch pin merge export flow", async ({ page, browserName },
   await page.getByRole("button", { name: "Export Markdown" }).first().click();
   await page.getByRole("button", { name: "Export PDF" }).first().click();
   await expect(page.getByTestId("exports-panel").getByText(/Study Note/).first()).toBeVisible();
+  const rightPanel = page.getByTestId("right-panel-scroll");
+  await expect.poll(async () => rightPanel.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await rightPanel.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(async () => rightPanel.evaluate((element) => element.scrollTop > 0)).toBe(true);
   expect(browserName).toBe("chromium");
 });

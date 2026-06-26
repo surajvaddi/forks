@@ -19,8 +19,8 @@ export function RightPanel({
   exports: ExportRecord[];
 }) {
   return (
-    <aside className="flex min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Branches and memory">
-      <div className="min-h-0 flex-1 overflow-auto p-4 forks-scrollbar">
+    <aside className="flex h-full min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Branches and memory">
+      <div className="min-h-0 flex-1 overflow-auto p-4 forks-scrollbar" data-testid="right-panel-scroll">
         <section data-testid="branch-panel">
           <div className="mb-3 flex items-center gap-2">
             <GitBranch size={16} />

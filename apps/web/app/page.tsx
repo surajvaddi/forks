@@ -41,7 +41,7 @@ export default async function Home({
       ) : (
         <EmptyThreads projectId={snapshot.project.id} projectTitle={snapshot.project.title} />
       )}
-      <div className="max-lg:hidden">
+      <div className="min-h-0 max-lg:hidden">
         <RightPanel
           project={snapshot.project}
           branches={snapshot.branches}
