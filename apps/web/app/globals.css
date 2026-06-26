@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #151515;
+  background: #f7f5ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f7f5ef;
+  color: #151515;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+.forks-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #b9b0a2 transparent;
+}
