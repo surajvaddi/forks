@@ -50,6 +50,9 @@ test("submits a typed prompt with Enter", async ({ page }) => {
   await page.getByLabel("Chat prompt").press("Enter");
 
   await expect(page.getByRole("heading", { name: "Learning Answer" }).last()).toBeVisible();
+  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+  await expect(page).toHaveURL(/project=/);
+  await expect(page).toHaveURL(/thread=/);
 });
 
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
@@ -60,6 +63,7 @@ test("complete chat branch pin merge export flow", async ({ page, browserName },
   await page.getByRole("button", { name: "Send prompt" }).click();
 
   await expect(page.getByRole("heading", { name: "Distributed Job Queues" }).last()).toBeVisible();
+  await expect(page.getByLabel("Chat prompt")).toBeVisible();
   await expect(page.getByTestId("branch-panel").getByText("Define idempotent handlers").first()).toBeVisible();
 
   const firstBranch = page.getByTestId("branch-card").filter({ has: page.getByRole("heading", { name: "Define idempotent handlers" }) }).first();

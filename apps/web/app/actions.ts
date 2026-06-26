@@ -69,6 +69,7 @@ export async function submitPromptAction(formData: FormData) {
   if (!projectId || !threadId || !prompt) return;
   await handleUserPrompt(projectId, threadId, prompt);
   revalidatePath("/");
+  redirect(`/?project=${projectId}&thread=${threadId}`);
 }
 
 export async function expandBranchAction(formData: FormData) {
