@@ -111,6 +111,29 @@ type StoreState = {
 
 const globalStore = globalThis as unknown as { forksStore?: StoreState };
 const devStorePath = join(process.cwd(), "../../.forks-store.json");
+const canonicalSpanSpecs = [
+  {
+    key: "core_concept",
+    text: "core concept",
+    importanceScore: 0.87,
+    ambiguityScore: 0.44,
+    shortDefinition: "The main idea a learner should understand before branching into details."
+  },
+  {
+    key: "hidden_prerequisite",
+    text: "hidden prerequisite",
+    importanceScore: 0.86,
+    ambiguityScore: 0.65,
+    shortDefinition: "A required idea the explanation assumes but has not explained yet."
+  },
+  {
+    key: "project_knowledge",
+    text: "reusable project knowledge",
+    importanceScore: 0.91,
+    ambiguityScore: 0.35,
+    shortDefinition: "Knowledge saved inside the project so it can be pinned, merged, and exported later."
+  }
+] as const;
 
 function shouldUsePrismaStore() {
   return Boolean(process.env.DATABASE_URL) && process.env.FORKS_STORE !== "memory" && process.env.NODE_ENV !== "test";
@@ -354,6 +377,61 @@ function persistCurrentStore() {
   persistFileBackedStore(store);
 }
 
+function normalizeBranchKey(value: string | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getBranchSimilarityKey(branch: Pick<BranchRecord, "type" | "label" | "sourceSpanText"> | BranchDraft) {
+  const conceptBranchTypes = new Set<BranchType>(["DEFINITION", "PREREQUISITE", "SUMMARY"]);
+  const sourceKey = normalizeBranchKey(branch.sourceSpanText);
+  const labelKey = normalizeBranchKey(branch.label.replace(/^(define|explain|find|clarify|show)\s+/, ""));
+  const branchFamily = conceptBranchTypes.has(branch.type) ? "CONCEPT" : branch.type;
+
+  return [branchFamily, sourceKey || labelKey].join(":");
+}
+
+function createBranchKeySet(branches: Array<Pick<BranchRecord, "type" | "label" | "sourceSpanText" | "status">>) {
+  return new Set(
+    branches
+      .filter((branch) => branch.status !== "DISCARDED")
+      .map((branch) => getBranchSimilarityKey(branch))
+  );
+}
+
+function addCanonicalSpans(nodes: NodeRecord[], spans: SpanRecord[]) {
+  const existing = new Set(spans.map((span) => `${span.nodeId}:${normalizeBranchKey(span.text)}`));
+  const additions: SpanRecord[] = [];
+
+  for (const node of nodes) {
+    const lowerContent = node.content.toLowerCase();
+    for (const spec of canonicalSpanSpecs) {
+      const startOffset = lowerContent.indexOf(spec.text);
+      const key = `${node.id}:${normalizeBranchKey(spec.text)}`;
+      if (startOffset === -1 || existing.has(key)) {
+        continue;
+      }
+
+      existing.add(key);
+      additions.push({
+        id: `span_auto_${node.id}_${spec.key}`,
+        projectId: node.projectId,
+        nodeId: node.id,
+        text: node.content.slice(startOffset, startOffset + spec.text.length),
+        startOffset,
+        endOffset: startOffset + spec.text.length,
+        importanceScore: spec.importanceScore,
+        ambiguityScore: spec.ambiguityScore,
+        shortDefinition: spec.shortDefinition
+      });
+    }
+  }
+
+  return additions.length > 0 ? [...spans, ...additions] : spans;
+}
+
 export async function getProjectSnapshot(projectId?: string, threadId?: string) {
   if (shouldUsePrismaStore()) {
     return getPrismaProjectSnapshot(projectId, threadId);
@@ -367,7 +445,7 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : projectThreads[0];
   const turns = activeThread ? store.turns.filter((turn) => turn.threadId === activeThread.id) : [];
   const nodes = store.nodes.filter((node) => node.projectId === project.id);
-  const spans = store.spans.filter((span) => span.projectId === project.id);
+  const spans = addCanonicalSpans(nodes, store.spans.filter((span) => span.projectId === project.id));
   const branches = rankBranches(store.branches.filter((branch) => branch.projectId === project.id));
   const pins = store.pins.filter((pin) => pin.projectId === project.id);
   const notes = store.notes.filter((note) => note.projectId === project.id);
@@ -505,9 +583,18 @@ export async function handleUserPrompt(projectId: string, threadId: string, prom
   store.spans.push(...spans);
 
   const branchDrafts = await llm.inferBranches(answer.content, spanDrafts);
-  const branches = branchDrafts.map((branch) => {
+  const branchKeys = createBranchKeySet(store.branches.filter((branch) => branch.projectId === projectId));
+  const branches: BranchRecord[] = [];
+
+  for (const branch of branchDrafts) {
+    const branchKey = getBranchSimilarityKey(branch);
+    if (branchKeys.has(branchKey)) {
+      continue;
+    }
+
+    branchKeys.add(branchKey);
     const sourceSpan = spans.find((span) => span.text.toLowerCase() === branch.sourceSpanText?.toLowerCase());
-    return {
+    branches.push({
       ...branch,
       id: createId("branch"),
       projectId,
@@ -517,8 +604,8 @@ export async function handleUserPrompt(projectId: string, threadId: string, prom
       status: "LATENT" as const,
       createdAt: now(),
       updatedAt: now()
-    };
-  });
+    });
+  }
   store.branches.push(...branches);
   logForksEvent("chat.answer_generated", { projectId, threadId, spans: spans.length, branches: branches.length, provider: "memory" });
   persistCurrentStore();
@@ -728,30 +815,33 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
     }))
   );
 
+  const nodeRecords: NodeRecord[] = nodes.map((node) => ({
+    ...node,
+    threadId: node.threadId ?? undefined,
+    chatTurnId: node.chatTurnId ?? undefined,
+    title: node.title ?? undefined,
+    compressedContent: node.compressedContent ?? undefined,
+    type: node.type as NodeRecord["type"]
+  }));
+  const spanRecords: SpanRecord[] = spans.map((span) => ({
+    id: span.id,
+    projectId: span.projectId,
+    nodeId: span.nodeId,
+    text: span.text,
+    startOffset: span.startOffset,
+    endOffset: span.endOffset,
+    importanceScore: span.importanceScore,
+    ambiguityScore: span.ambiguityScore
+  }));
+
   return {
     project: projectRecord,
     projects: projects.map((item) => ({ ...item, description: item.description ?? undefined })),
     threads,
     activeThread,
     turns: turns.map((turn) => ({ ...turn, role: turn.role as "USER" | "ASSISTANT", nodeId: undefined })),
-    nodes: nodes.map((node) => ({
-      ...node,
-      threadId: node.threadId ?? undefined,
-      chatTurnId: node.chatTurnId ?? undefined,
-      title: node.title ?? undefined,
-      compressedContent: node.compressedContent ?? undefined,
-      type: node.type as NodeRecord["type"]
-    })),
-    spans: spans.map((span) => ({
-      id: span.id,
-      projectId: span.projectId,
-      nodeId: span.nodeId,
-      text: span.text,
-      startOffset: span.startOffset,
-      endOffset: span.endOffset,
-      importanceScore: span.importanceScore,
-      ambiguityScore: span.ambiguityScore
-    })),
+    nodes: nodeRecords,
+    spans: addCanonicalSpans(nodeRecords, spanRecords),
     branches,
     pins: pins.map((pin) => ({
       id: pin.id,
@@ -926,10 +1016,32 @@ async function handlePrismaUserPrompt(projectId: string, threadId: string, promp
   );
 
   const branchDrafts = await llm.inferBranches(answer.content, spanDrafts);
+  const existingBranches = await prisma.branchCandidate.findMany({
+    where: {
+      projectId,
+      status: { not: "DISCARDED" }
+    },
+    include: { sourceSpan: true }
+  });
+  const branchKeys = createBranchKeySet(
+    existingBranches.map((branch) => ({
+      type: branch.type as BranchType,
+      label: branch.label,
+      sourceSpanText: branch.sourceSpan?.text,
+      status: branch.status as BranchStatus
+    }))
+  );
   const branches = await Promise.all(
-    branchDrafts.map((branch) => {
+    branchDrafts.flatMap((branch) => {
+      const branchKey = getBranchSimilarityKey(branch);
+      if (branchKeys.has(branchKey)) {
+        return [];
+      }
+
+      branchKeys.add(branchKey);
       const sourceSpan = spans.find((span) => span.text.toLowerCase() === branch.sourceSpanText?.toLowerCase());
-      return prisma.branchCandidate.create({
+      return [
+        prisma.branchCandidate.create({
         data: {
           projectId,
           sourceNodeId: node.id,
@@ -943,7 +1055,8 @@ async function handlePrismaUserPrompt(projectId: string, threadId: string, promp
           estimatedCost: branch.estimatedCost,
           status: "LATENT"
         }
-      });
+        })
+      ];
     })
   );
   logForksEvent("chat.answer_generated", { projectId, threadId, spans: spans.length, branches: branches.length, provider: "prisma" });

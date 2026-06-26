@@ -55,6 +55,7 @@ export class MockLlmAdapter implements LlmAdapter {
       findSpan(content, "asynchronously", 0.57, 0.4, "Work happens outside the request that created it."),
       findSpan(content, "at-least-once delivery", 0.91, 0.74, "A delivery guarantee where a job may run more than once but should not be lost."),
       findSpan(content, "idempotent handlers", 0.96, 0.79, "Handlers that can safely run multiple times without duplicate side effects."),
+      findSpan(content, "core concept", 0.87, 0.44, "The main idea a learner should understand before branching into details."),
       findSpan(content, "hidden prerequisite", 0.72, 0.61, "A required idea that the explanation assumes you already know."),
       findSpan(content, "reusable project knowledge", 0.82, 0.38, "Knowledge saved so it can be revisited, merged, and exported later.")
     ];

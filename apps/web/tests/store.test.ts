@@ -42,6 +42,20 @@ describe("chat to knowledge store", () => {
     expect(snapshot?.nodes.some((node) => node.content.includes("reusable project knowledge"))).toBe(true);
   });
 
+  it("deduplicates repeated latent learning branches while keeping spans consistent", async () => {
+    const snapshot = await getProjectSnapshot();
+    const initialBranchLabels = snapshot!.branches.map((branch) => branch.label);
+
+    await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "hi");
+    await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "hi again");
+    const updated = (await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id))!;
+    const learningNodes = updated.nodes.filter((node) => node.title === "Learning Answer");
+    const latestLearningNode = learningNodes[learningNodes.length - 1];
+
+    expect(updated.branches.map((branch) => branch.label)).toEqual(initialBranchLabels);
+    expect(updated.spans.some((span) => span.nodeId === latestLearningNode.id && span.text === "core concept")).toBe(true);
+  });
+
   it("generates a branch lazily and can pin, merge, and export it", async () => {
     const snapshot = await getProjectSnapshot();
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "Explain distributed job queues");
