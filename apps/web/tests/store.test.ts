@@ -1,5 +1,18 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { exportMarkdown, exportPdf, generateBranch, getProjectSnapshot, handleUserPrompt, mergePins, resetStoreForTests, togglePin } from "@/lib/store";
+import {
+  createProject,
+  createThread,
+  deleteProject,
+  deleteThread,
+  exportMarkdown,
+  exportPdf,
+  generateBranch,
+  getProjectSnapshot,
+  handleUserPrompt,
+  mergePins,
+  resetStoreForTests,
+  togglePin
+} from "@/lib/store";
 
 describe("chat to knowledge store", () => {
   beforeEach(() => {
@@ -36,5 +49,25 @@ describe("chat to knowledge store", () => {
     expect(exported.content).toContain("What to remember");
     expect(pdf.type).toBe("PDF");
     expect(pdf.content.startsWith("%PDF-1.4")).toBe(true);
+  });
+
+  it("deletes projects and redirects to a remaining project target", async () => {
+    const created = await createProject("Temporary Project");
+    const target = await deleteProject(created.project.id);
+    const snapshot = await getProjectSnapshot();
+
+    expect(snapshot?.projects.some((project) => project.id === created.project.id)).toBe(false);
+    expect(target.project).toBeDefined();
+    expect(target.thread).toBeDefined();
+  });
+
+  it("deletes threads and keeps a project open with a fallback thread", async () => {
+    const snapshot = await getProjectSnapshot();
+    const extra = await createThread(snapshot!.project.id, "Temporary Thread");
+    const target = await deleteThread(snapshot!.project.id, extra.id);
+    const updated = await getProjectSnapshot(snapshot!.project.id, target.thread?.id);
+
+    expect(updated?.threads.some((thread) => thread.id === extra.id)).toBe(false);
+    expect(updated?.activeThread).toBeDefined();
   });
 });

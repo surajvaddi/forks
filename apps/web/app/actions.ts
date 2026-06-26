@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import {
   createProject,
   createThread,
+  deleteProject,
+  deleteThread,
   exportMarkdown,
   exportPdf,
   generateBranch,
@@ -35,6 +37,29 @@ export async function createThreadAction(formData: FormData) {
   const thread = await createThread(projectId, title);
   revalidatePath("/");
   redirect(`/?project=${projectId}&thread=${thread.id}`);
+}
+
+export async function deleteProjectAction(formData: FormData) {
+  const projectId = getString(formData, "projectId");
+  if (!projectId) return;
+  const target = await deleteProject(projectId);
+  revalidatePath("/");
+  if (target.project && target.thread) {
+    redirect(`/?project=${target.project.id}&thread=${target.thread.id}`);
+  }
+  redirect("/");
+}
+
+export async function deleteThreadAction(formData: FormData) {
+  const projectId = getString(formData, "projectId");
+  const threadId = getString(formData, "threadId");
+  if (!projectId || !threadId) return;
+  const target = await deleteThread(projectId, threadId);
+  revalidatePath("/");
+  if (target.project && target.thread) {
+    redirect(`/?project=${target.project.id}&thread=${target.thread.id}`);
+  }
+  redirect(`/?project=${projectId}`);
 }
 
 export async function submitPromptAction(formData: FormData) {

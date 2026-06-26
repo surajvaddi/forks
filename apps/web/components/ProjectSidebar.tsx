@@ -1,5 +1,5 @@
-import { BookOpen, FolderPlus, MessageSquarePlus } from "lucide-react";
-import { createProjectAction, createThreadAction } from "@/app/actions";
+import { BookOpen, FolderPlus, MessageSquarePlus, Trash2 } from "lucide-react";
+import { createProjectAction, createThreadAction, deleteProjectAction, deleteThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import type { ProjectRecord, ThreadRecord } from "@/lib/store";
 
@@ -45,15 +45,26 @@ export function ProjectSidebar({
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Projects</p>
         <div className="space-y-2">
           {projects.map((project) => (
-            <a
+            <div
               key={project.id}
-              className={`block rounded border px-3 py-2 text-sm ${
+              className={`flex items-center gap-1 rounded border ${
                 project.id === activeProjectId ? "border-moss bg-white font-semibold" : "border-transparent hover:bg-white"
               }`}
-              href={`/?project=${project.id}`}
             >
-              {project.title}
-            </a>
+              <a className="min-w-0 flex-1 truncate px-3 py-2 text-sm" href={`/?project=${project.id}`}>
+                {project.title}
+              </a>
+              <form action={deleteProjectAction} className="pr-1">
+                <input type="hidden" name="projectId" value={project.id} />
+                <SubmitButton
+                  className="grid h-7 w-7 place-items-center rounded text-neutral-500 hover:bg-[#f4d7ce] hover:text-rust"
+                  aria-label={`Delete project ${project.title}`}
+                  title="Delete project"
+                >
+                  <Trash2 size={14} />
+                </SubmitButton>
+              </form>
+            </div>
           ))}
         </div>
 
@@ -62,9 +73,22 @@ export function ProjectSidebar({
         </div>
         <div className="mt-2 space-y-2">
           {threads.map((thread) => (
-            <a key={thread.id} href={`/?project=${thread.projectId}&thread=${thread.id}`} className="block rounded px-3 py-2 text-sm hover:bg-white">
-              {thread.title}
-            </a>
+            <div key={thread.id} className="flex items-center gap-1 rounded hover:bg-white">
+              <a href={`/?project=${thread.projectId}&thread=${thread.id}`} className="min-w-0 flex-1 truncate px-3 py-2 text-sm">
+                {thread.title}
+              </a>
+              <form action={deleteThreadAction} className="pr-1">
+                <input type="hidden" name="projectId" value={thread.projectId} />
+                <input type="hidden" name="threadId" value={thread.id} />
+                <SubmitButton
+                  className="grid h-7 w-7 place-items-center rounded text-neutral-500 hover:bg-[#f4d7ce] hover:text-rust"
+                  aria-label={`Delete thread ${thread.title}`}
+                  title="Delete thread"
+                >
+                  <Trash2 size={14} />
+                </SubmitButton>
+              </form>
+            </div>
           ))}
         </div>
       </div>

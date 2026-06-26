@@ -4,7 +4,9 @@ export type ForksEvent =
   | "branch.generated"
   | "pin.toggled"
   | "note.merged"
-  | "export.created";
+  | "export.created"
+  | "project.deleted"
+  | "thread.deleted";
 
 export function logForksEvent(event: ForksEvent, metadata: Record<string, string | number | boolean | undefined>) {
   if (process.env.NODE_ENV === "test") return;

@@ -21,6 +21,27 @@ test("creates a project and opens its first thread", async ({ page }, testInfo) 
   await expect(page.getByLabel("Chat prompt")).toBeVisible();
 });
 
+test("deletes projects and threads from the sidebar", async ({ page }, testInfo) => {
+  const projectTitle = `Delete Project ${testInfo.project.name} ${Date.now()}`;
+  const threadTitle = `Delete Thread ${testInfo.project.name} ${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByLabel("New project").fill(projectTitle);
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByRole("link", { name: projectTitle }).first()).toBeVisible();
+
+  await page.getByLabel("New thread").fill(threadTitle);
+  await page.getByRole("button", { name: "Create thread" }).click();
+  await expect(page.getByRole("link", { name: threadTitle }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: `Delete thread ${threadTitle}` }).click();
+  await expect(page.getByRole("link", { name: threadTitle })).toHaveCount(0);
+
+  await page.getByRole("button", { name: `Delete project ${projectTitle}` }).click();
+  await expect(page.getByRole("link", { name: projectTitle })).toHaveCount(0);
+  await expect(page.getByLabel("Chat prompt")).toBeVisible();
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 

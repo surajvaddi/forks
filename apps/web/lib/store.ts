@@ -245,6 +245,71 @@ export async function createThread(projectId: string, title: string) {
   return thread;
 }
 
+export async function deleteProject(projectId: string) {
+  if (shouldUsePrismaStore()) {
+    return deletePrismaProject(projectId);
+  }
+
+  const store = getStore();
+  const threadIds = new Set(store.threads.filter((thread) => thread.projectId === projectId).map((thread) => thread.id));
+  const nodeIds = new Set(store.nodes.filter((node) => node.projectId === projectId).map((node) => node.id));
+  const branchIds = new Set(store.branches.filter((branch) => branch.projectId === projectId).map((branch) => branch.id));
+  const noteIds = new Set(store.notes.filter((note) => note.projectId === projectId).map((note) => note.id));
+
+  store.projects = store.projects.filter((project) => project.id !== projectId);
+  store.threads = store.threads.filter((thread) => thread.projectId !== projectId);
+  store.turns = store.turns.filter((turn) => !threadIds.has(turn.threadId));
+  store.nodes = store.nodes.filter((node) => node.projectId !== projectId);
+  store.spans = store.spans.filter((span) => !nodeIds.has(span.nodeId));
+  store.branches = store.branches.filter((branch) => branch.projectId !== projectId);
+  store.pins = store.pins.filter((pin) => pin.projectId !== projectId && !branchIds.has(pin.targetId) && !nodeIds.has(pin.targetId) && !noteIds.has(pin.targetId));
+  store.notes = store.notes.filter((note) => note.projectId !== projectId);
+  store.exports = store.exports.filter((record) => record.projectId !== projectId);
+
+  if (store.projects.length === 0) {
+    const seed = createSeedState();
+    store.projects.push(...seed.projects);
+    store.threads.push(...seed.threads);
+  }
+
+  persistCurrentStore();
+  logForksEvent("project.deleted", { projectId, provider: "memory" });
+  return getNextProjectTarget();
+}
+
+export async function deleteThread(projectId: string, threadId: string) {
+  if (shouldUsePrismaStore()) {
+    return deletePrismaThread(projectId, threadId);
+  }
+
+  const store = getStore();
+  const nodeIds = new Set(store.nodes.filter((node) => node.threadId === threadId).map((node) => node.id));
+  const branchIds = new Set(store.branches.filter((branch) => branch.sourceThreadId === threadId).map((branch) => branch.id));
+
+  store.threads = store.threads.filter((thread) => thread.id !== threadId);
+  store.turns = store.turns.filter((turn) => turn.threadId !== threadId);
+  store.nodes = store.nodes.filter((node) => node.threadId !== threadId);
+  store.spans = store.spans.filter((span) => !nodeIds.has(span.nodeId));
+  store.branches = store.branches.filter((branch) => branch.sourceThreadId !== threadId);
+  store.pins = store.pins.filter((pin) => pin.threadId !== threadId && !nodeIds.has(pin.targetId) && !branchIds.has(pin.targetId));
+
+  if (!store.threads.some((thread) => thread.projectId === projectId)) {
+    const stamp = now();
+    store.threads.push({ id: createId("thread"), projectId, title: "First learning thread", createdAt: stamp, updatedAt: stamp });
+  }
+
+  persistCurrentStore();
+  logForksEvent("thread.deleted", { projectId, threadId, provider: "memory" });
+  return getNextProjectTarget(projectId);
+}
+
+function getNextProjectTarget(preferredProjectId?: string) {
+  const store = getStore();
+  const project = (preferredProjectId ? store.projects.find((item) => item.id === preferredProjectId) : undefined) ?? store.projects[0];
+  const thread = project ? store.threads.find((item) => item.projectId === project.id) : undefined;
+  return { project, thread };
+}
+
 export async function handleUserPrompt(projectId: string, threadId: string, prompt: string) {
   if (shouldUsePrismaStore()) {
     return handlePrismaUserPrompt(projectId, threadId, prompt);
@@ -590,6 +655,33 @@ async function createPrismaProject(title: string) {
 
 async function createPrismaThread(projectId: string, title: string) {
   return prisma.thread.create({ data: { projectId, title } });
+}
+
+async function deletePrismaProject(projectId: string) {
+  await prisma.project.delete({ where: { id: projectId } }).catch(() => null);
+  const remainingProject = await prisma.project.findFirst({ orderBy: { createdAt: "asc" }, include: { threads: { orderBy: { createdAt: "asc" } } } });
+
+  if (!remainingProject) {
+    const created = await createPrismaProject("Distributed Systems Prep");
+    logForksEvent("project.deleted", { projectId, provider: "prisma" });
+    return { project: created.project, thread: created.thread };
+  }
+
+  logForksEvent("project.deleted", { projectId, provider: "prisma" });
+  return { project: remainingProject, thread: remainingProject.threads[0] };
+}
+
+async function deletePrismaThread(projectId: string, threadId: string) {
+  await prisma.thread.delete({ where: { id: threadId } }).catch(() => null);
+  let thread = await prisma.thread.findFirst({ where: { projectId }, orderBy: { createdAt: "asc" } });
+
+  if (!thread) {
+    thread = await prisma.thread.create({ data: { projectId, title: "First learning thread" } });
+  }
+
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  logForksEvent("thread.deleted", { projectId, threadId, provider: "prisma" });
+  return { project: project ?? undefined, thread };
 }
 
 async function handlePrismaUserPrompt(projectId: string, threadId: string, prompt: string) {
