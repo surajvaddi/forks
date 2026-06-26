@@ -1,4 +1,7 @@
+"use client";
+
 import { BookOpen, FolderPlus, MessageSquare, MessageSquarePlus, Trash2 } from "lucide-react";
+import { useOptimistic } from "react";
 import { createProjectAction, createThreadAction, deleteProjectAction, deleteThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import type { ProjectRecord, ThreadRecord } from "@/lib/store";
@@ -12,6 +15,19 @@ export function ProjectSidebar({
   threads: ThreadRecord[];
   activeProjectId?: string;
 }) {
+  const [optimisticProjects, addOptimisticProject] = useOptimistic(
+    projects,
+    (currentProjects: ProjectRecord[], title: string) => [
+      ...currentProjects,
+      {
+        id: `optimistic_project_${title}`,
+        title,
+        description: "Creating project...",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ]
+  );
   const threadsByProject = new Map<string, ThreadRecord[]>();
   for (const thread of threads) {
     const projectThreads = threadsByProject.get(thread.projectId) ?? [];
@@ -31,7 +47,16 @@ export function ProjectSidebar({
         </div>
       </div>
 
-      <form action={createProjectAction} className="mb-5 rounded border border-line bg-paper p-2">
+      <form
+        action={async (formData) => {
+          const title = formData.get("title");
+          if (typeof title === "string" && title.trim()) {
+            addOptimisticProject(title.trim());
+          }
+          await createProjectAction(formData);
+        }}
+        className="mb-5 rounded border border-line bg-paper p-2"
+      >
         <label className="text-xs font-medium text-neutral-600" htmlFor="project-title">
           New project
         </label>
@@ -51,7 +76,7 @@ export function ProjectSidebar({
       <div className="min-h-0 flex-1 overflow-auto forks-scrollbar">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Projects and threads</p>
         <div className="space-y-3">
-          {projects.map((project) => (
+          {optimisticProjects.map((project) => (
             <section key={project.id} className="rounded border border-line bg-paper/70 p-1.5" aria-label={`${project.title} project`} data-testid="project-item">
               <div
                 className={`flex items-center gap-1 rounded ${
