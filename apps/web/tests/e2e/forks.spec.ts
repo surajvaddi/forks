@@ -71,6 +71,21 @@ test("submits a typed prompt with Enter", async ({ page }) => {
   await expect(page).toHaveURL(/thread=/);
 });
 
+test("expands and condenses hover definitions inline", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Hover definition editing is tested on pointer devices.");
+
+  await page.goto("/");
+  await page.getByText("core concept").first().hover();
+  await page.getByRole("button", { name: "Add definition for core concept to text" }).click();
+
+  await expect(page.getByText("The main idea a learner should understand before branching into details.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Condense definition for core concept" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Condense definition for core concept" }).click();
+  await expect(page.getByRole("button", { name: "Condense definition for core concept" })).toHaveCount(0);
+  await expect(page.getByText("core concept").first()).toBeVisible();
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 

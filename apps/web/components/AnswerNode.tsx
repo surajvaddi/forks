@@ -1,6 +1,6 @@
 import { Pin } from "lucide-react";
-import { splitTextBySpans } from "@/lib/render-spans";
 import { togglePinAction } from "@/app/actions";
+import { ExpandableAnswerText } from "./ExpandableAnswerText";
 import { SubmitButton } from "./SubmitButton";
 import type { NodeRecord, SpanRecord } from "@/lib/store";
 
@@ -17,9 +17,6 @@ export function AnswerNode({
   threadId: string;
   isPinned: boolean;
 }) {
-  const parts = splitTextBySpans(node.content, spans);
-  const definitionMap = new Map(spans.map((span) => [span.id, span.shortDefinition ?? `${span.text}: a useful concept to expand.`]));
-
   return (
     <article className="rounded border border-line bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -38,21 +35,7 @@ export function AnswerNode({
           </SubmitButton>
         </form>
       </div>
-      <p className="text-[15px] leading-7">
-        {parts.map((part, index) =>
-          part.type === "text" ? (
-            <span key={index}>{part.text}</span>
-          ) : (
-            <span key={part.span.id ?? index} className="group relative inline-block">
-              <mark className="rounded bg-skywash px-1 text-ink underline decoration-moss decoration-2 underline-offset-4">{part.text}</mark>
-              <span className="invisible absolute left-0 top-7 z-20 w-72 rounded border border-line bg-ink p-3 text-sm leading-5 text-paper opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
-                <strong className="block text-white">{part.text}</strong>
-                {definitionMap.get(part.span.id ?? "")}
-              </span>
-            </span>
-          )
-        )}
-      </p>
+      <ExpandableAnswerText content={node.content} spans={spans} />
     </article>
   );
 }
