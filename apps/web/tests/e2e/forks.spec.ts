@@ -116,6 +116,9 @@ test("complete chat branch pin merge export flow", async ({ page, browserName },
   await page.getByRole("button", { name: "Export Markdown" }).first().click();
   await page.getByRole("button", { name: "Export PDF" }).first().click();
   await expect(page.getByTestId("exports-panel").getByText(/Study Note/).first()).toBeVisible();
+  await expect(page.getByTestId("exports-panel").getByText("%PDF-1.4")).toHaveCount(0);
+  await page.getByTestId("exports-panel").getByText(/\.pdf$/).first().click();
+  await expect(page.getByTestId("exports-panel").getByText("PDF artifact recorded.")).toBeVisible();
   const rightPanel = page.getByTestId("right-panel-scroll");
   await expect.poll(async () => rightPanel.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   await rightPanel.evaluate((element) => {

@@ -138,7 +138,13 @@ export function RightPanel({
               {exports.map((item) => (
                 <details key={item.id} className="rounded border border-line bg-white p-3">
                   <summary className="cursor-pointer text-sm font-semibold">{item.title}</summary>
-                  <pre className="mt-2 whitespace-pre-wrap rounded bg-paper p-2 text-xs">{item.content}</pre>
+                  {item.type === "MARKDOWN" ? (
+                    <pre className="mt-2 whitespace-pre-wrap rounded bg-paper p-2 text-xs">{item.content}</pre>
+                  ) : (
+                    <p className="mt-2 rounded bg-paper p-2 text-xs text-neutral-600">
+                      PDF artifact recorded. Binary content is hidden from the workspace preview.
+                    </p>
+                  )}
                 </details>
               ))}
             </div>
