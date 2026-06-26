@@ -1,11 +1,11 @@
 import { Send } from "lucide-react";
-import { submitPromptAction } from "@/app/actions";
+import { ComposerForm } from "./ComposerForm";
 import { PromptTextarea } from "./PromptTextarea";
 import { SubmitButton } from "./SubmitButton";
 
 export function ChatComposer({ projectId, threadId }: { projectId: string; threadId: string }) {
   return (
-    <form action={submitPromptAction} className="border-t border-line bg-paper p-4">
+    <ComposerForm>
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="threadId" value={threadId} />
       <div className="flex gap-3">
@@ -14,6 +14,6 @@ export function ChatComposer({ projectId, threadId }: { projectId: string; threa
           <Send size={18} />
         </SubmitButton>
       </div>
-    </form>
+    </ComposerForm>
   );
 }

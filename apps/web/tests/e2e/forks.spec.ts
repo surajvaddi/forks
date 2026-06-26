@@ -64,8 +64,16 @@ test("submits a typed prompt with Enter", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Chat prompt").fill("hi");
   await page.getByLabel("Chat prompt").press("Enter");
+  await expect(page.getByLabel("Chat prompt")).toHaveValue("");
 
   await expect(page.getByRole("heading", { name: "Learning Answer" }).last()).toBeVisible();
+  const userBubble = page.getByTestId("user-turn").filter({ hasText: "hi" }).last();
+  await expect(userBubble).toBeVisible();
+  const bubbleBox = await userBubble.boundingBox();
+  const chatBox = await page.getByLabel("Learning chat").boundingBox();
+  expect(bubbleBox).not.toBeNull();
+  expect(chatBox).not.toBeNull();
+  expect(bubbleBox!.x + bubbleBox!.width).toBeGreaterThan(chatBox!.x + chatBox!.width * 0.8);
   await expectPromptInViewport(page);
   await expect(page).toHaveURL(/project=/);
   await expect(page).toHaveURL(/thread=/);

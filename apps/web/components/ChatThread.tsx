@@ -33,12 +33,14 @@ export function ChatThread({
             </p>
           </div>
         ) : (
-          <div className="mx-auto max-w-3xl space-y-5">
+          <div className="space-y-5">
             {turns.map((turn) => {
               if (turn.role === "USER") {
                 return (
-                  <div key={turn.id} className="ml-auto max-w-2xl rounded border border-line bg-[#e8ded0] px-4 py-3 text-sm">
-                    {turn.content}
+                  <div key={turn.id} className="flex justify-end" data-testid="user-turn">
+                    <div className="max-w-[68%] rounded border border-line bg-[#e8ded0] px-4 py-3 text-sm shadow-sm">
+                      {turn.content}
+                    </div>
                   </div>
                 );
               }
@@ -46,21 +48,22 @@ export function ChatThread({
               const node = nodes.find((item) => item.chatTurnId === turn.id);
               if (!node) {
                 return (
-                  <div key={turn.id} className="rounded border border-line bg-white p-4">
+                  <div key={turn.id} className="mx-auto max-w-3xl rounded border border-line bg-white p-4">
                     {turn.content}
                   </div>
                 );
               }
 
               return (
-                <AnswerNode
-                  key={turn.id}
-                  node={node}
-                  spans={spans.filter((span) => span.nodeId === node.id)}
-                  projectId={projectId}
-                  threadId={thread.id}
-                  isPinned={pins.some((pin) => pin.targetId === node.id && pin.targetType === "NODE")}
-                />
+                <div key={turn.id} className="mx-auto max-w-3xl">
+                  <AnswerNode
+                    node={node}
+                    spans={spans.filter((span) => span.nodeId === node.id)}
+                    projectId={projectId}
+                    threadId={thread.id}
+                    isPinned={pins.some((pin) => pin.targetId === node.id && pin.targetType === "NODE")}
+                  />
+                </div>
               );
             })}
           </div>
