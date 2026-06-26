@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import { getCachedGeneration, setCachedGeneration } from "./cache";
 import { promptVersions } from "./prompts";
 import { createSimplePdf } from "./pdf";
+import { logForksEvent } from "./observability";
 
 export type ProjectRecord = {
   id: string;
@@ -207,6 +208,7 @@ export async function handleUserPrompt(projectId: string, threadId: string, prom
   const stamp = now();
   const userTurn: ChatTurnRecord = { id: createId("turn"), projectId, threadId, role: "USER", content: prompt, createdAt: stamp };
   store.turns.push(userTurn);
+  logForksEvent("chat.prompt_submitted", { projectId, threadId, provider: "memory" });
 
   const llm = getLlmAdapter();
   const pinnedContext = store.pins.filter((pin) => pin.projectId === projectId).map((pin) => pin.label);
@@ -255,6 +257,7 @@ export async function handleUserPrompt(projectId: string, threadId: string, prom
     };
   });
   store.branches.push(...branches);
+  logForksEvent("chat.answer_generated", { projectId, threadId, spans: spans.length, branches: branches.length, provider: "memory" });
 
   return { userTurn, assistantTurn, node, spans, branches };
 }
@@ -298,6 +301,7 @@ export async function generateBranch(branchId: string) {
   branch.generatedNodeId = node.id;
   branch.status = "GENERATED";
   branch.updatedAt = now();
+  logForksEvent("branch.generated", { projectId: branch.projectId, branchId: branch.id, provider: "memory" });
   return branch;
 }
 
@@ -310,10 +314,12 @@ export async function togglePin(projectId: string, targetId: string, targetType:
   const existing = store.pins.find((pin) => pin.projectId === projectId && pin.targetId === targetId && pin.targetType === targetType);
   if (existing) {
     store.pins = store.pins.filter((pin) => pin.id !== existing.id);
+    logForksEvent("pin.toggled", { projectId, targetType, pinned: false, provider: "memory" });
     return null;
   }
   const pin: PinRecord = { id: createId("pin"), projectId, threadId, targetId, targetType, label, createdAt: now() };
   store.pins.push(pin);
+  logForksEvent("pin.toggled", { projectId, targetType, pinned: true, provider: "memory" });
   return pin;
 }
 
@@ -340,6 +346,7 @@ export async function mergePins(projectId: string) {
     updatedAt: now()
   };
   store.notes.push(note);
+  logForksEvent("note.merged", { projectId, sources: note.sourceIds.length, provider: "memory" });
   return note;
 }
 
@@ -374,6 +381,7 @@ export async function exportMarkdown(projectId: string, noteId?: string) {
     createdAt: now()
   };
   store.exports.push(record);
+  logForksEvent("export.created", { projectId, type: "MARKDOWN", provider: "memory" });
   return record;
 }
 
@@ -395,6 +403,7 @@ export async function exportPdf(projectId: string, noteId?: string) {
     createdAt: now()
   };
   store.exports.push(record);
+  logForksEvent("export.created", { projectId, type: "PDF", provider: "memory" });
   return record;
 }
 
@@ -531,6 +540,7 @@ async function handlePrismaUserPrompt(projectId: string, threadId: string, promp
   if (!project || !thread) throw new Error("Project thread not found.");
 
   const userTurn = await prisma.chatTurn.create({ data: { projectId, threadId, role: "USER", content: prompt } });
+  logForksEvent("chat.prompt_submitted", { projectId, threadId, provider: "prisma" });
   const pinnedContext = (await prisma.pin.findMany({ where: { projectId } })).map((pin) => pin.label ?? "");
   const llm = getLlmAdapter();
   const answer = await llm.generateAnswer({ prompt, projectTitle: project.title, pinnedContext });
@@ -584,6 +594,7 @@ async function handlePrismaUserPrompt(projectId: string, threadId: string, promp
       });
     })
   );
+  logForksEvent("chat.answer_generated", { projectId, threadId, spans: spans.length, branches: branches.length, provider: "prisma" });
 
   return { userTurn, assistantTurn, node, spans, branches };
 }
@@ -613,20 +624,25 @@ async function generatePrismaBranch(branchId: string) {
     }
   });
 
-  return prisma.branchCandidate.update({
+  const updated = await prisma.branchCandidate.update({
     where: { id: branchId },
     data: { generatedNodeId: node.id, status: "GENERATED" }
   });
+  logForksEvent("branch.generated", { projectId: branch.projectId, branchId, provider: "prisma" });
+  return updated;
 }
 
 async function togglePrismaPin(projectId: string, targetId: string, targetType: PinTarget, label: string, threadId?: string) {
   const existing = await prisma.pin.findUnique({ where: { projectId_targetId_targetType: { projectId, targetId, targetType } } });
   if (existing) {
     await prisma.pin.delete({ where: { id: existing.id } });
+    logForksEvent("pin.toggled", { projectId, targetType, pinned: false, provider: "prisma" });
     return null;
   }
 
-  return prisma.pin.create({ data: { projectId, threadId, targetId, targetType, label } });
+  const pin = await prisma.pin.create({ data: { projectId, threadId, targetId, targetType, label } });
+  logForksEvent("pin.toggled", { projectId, targetType, pinned: true, provider: "prisma" });
+  return pin;
 }
 
 async function mergePrismaPins(projectId: string) {
@@ -641,7 +657,7 @@ async function mergePrismaPins(projectId: string) {
   });
   const merged = await getLlmAdapter().mergeBranches(inputs);
 
-  return prisma.mergedNote.create({
+  const note = await prisma.mergedNote.create({
     data: {
       projectId,
       title: merged.title,
@@ -649,6 +665,8 @@ async function mergePrismaPins(projectId: string) {
       sourceIds: pins.map((pin) => pin.targetId)
     }
   });
+  logForksEvent("note.merged", { projectId, sources: pins.length, provider: "prisma" });
+  return note;
 }
 
 async function updatePrismaNote(noteId: string, content: string) {
@@ -661,7 +679,7 @@ async function exportPrismaMarkdown(projectId: string, noteId?: string) {
     : await prisma.mergedNote.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
   const content = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
 
-  return prisma.exportRecord.create({
+  const record = await prisma.exportRecord.create({
     data: {
       projectId,
       type: "MARKDOWN",
@@ -670,6 +688,8 @@ async function exportPrismaMarkdown(projectId: string, noteId?: string) {
       sourceIds: note ? [note.id] : []
     }
   });
+  logForksEvent("export.created", { projectId, type: "MARKDOWN", provider: "prisma" });
+  return record;
 }
 
 async function exportPrismaPdf(projectId: string, noteId?: string) {
@@ -678,7 +698,7 @@ async function exportPrismaPdf(projectId: string, noteId?: string) {
     : await prisma.mergedNote.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
   const source = note?.content ?? "# Forks Project Export\n\nNo merged note exists yet.";
 
-  return prisma.exportRecord.create({
+  const record = await prisma.exportRecord.create({
     data: {
       projectId,
       type: "PDF",
@@ -687,4 +707,6 @@ async function exportPrismaPdf(projectId: string, noteId?: string) {
       sourceIds: note ? [note.id] : []
     }
   });
+  logForksEvent("export.created", { projectId, type: "PDF", provider: "prisma" });
+  return record;
 }

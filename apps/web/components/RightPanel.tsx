@@ -21,7 +21,7 @@ export function RightPanel({
   return (
     <aside className="flex min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Branches and memory">
       <div className="min-h-0 flex-1 overflow-auto p-4 forks-scrollbar">
-        <section>
+        <section data-testid="branch-panel">
           <div className="mb-3 flex items-center gap-2">
             <GitBranch size={16} />
             <h2 className="font-semibold">Latent branches</h2>
@@ -34,7 +34,7 @@ export function RightPanel({
                 const generatedNode = branch.generatedNodeId ? nodes.find((node) => node.id === branch.generatedNodeId) : undefined;
                 const pinned = pins.some((pin) => pin.targetId === branch.id && pin.targetType === "BRANCH");
                 return (
-                  <div key={branch.id} className="rounded border border-line bg-white p-3">
+                  <div key={branch.id} className="rounded border border-line bg-white p-3" data-testid="branch-card">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-rust">{branch.status.toLowerCase()}</p>
@@ -68,7 +68,7 @@ export function RightPanel({
           </div>
         </section>
 
-        <section className="mt-6">
+        <section className="mt-6" data-testid="memory-panel">
           <div className="mb-3 flex items-center gap-2">
             <Pin size={16} />
             <h2 className="font-semibold">Project memory</h2>
@@ -93,7 +93,7 @@ export function RightPanel({
           </form>
         </section>
 
-        <section className="mt-6">
+        <section className="mt-6" data-testid="notes-panel">
           <h2 className="mb-3 font-semibold">Synthesis notes</h2>
           {notes.length === 0 ? (
             <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Merged notes will appear here and can be edited.</p>
@@ -129,7 +129,7 @@ export function RightPanel({
           )}
         </section>
 
-        <section className="mt-6">
+        <section className="mt-6" data-testid="exports-panel">
           <h2 className="mb-3 font-semibold">Exports</h2>
           {exports.length === 0 ? (
             <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Markdown exports will be recorded here.</p>
