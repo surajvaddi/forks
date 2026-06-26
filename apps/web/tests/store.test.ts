@@ -71,13 +71,24 @@ describe("chat to knowledge store", () => {
     expect(target.thread).toBeDefined();
   });
 
-  it("deletes threads and keeps a project open with a fallback thread", async () => {
+  it("deletes the last project without recreating seed data", async () => {
     const snapshot = await getProjectSnapshot();
-    const extra = await createThread(snapshot!.project.id, "Temporary Thread");
-    const target = await deleteThread(snapshot!.project.id, extra.id);
+    const target = await deleteProject(snapshot!.project.id);
+    const updated = await getProjectSnapshot();
+
+    expect(target.project).toBeUndefined();
+    expect(target.thread).toBeUndefined();
+    expect(updated).toBeNull();
+  });
+
+  it("deletes the last thread without recreating a fallback thread", async () => {
+    const snapshot = await getProjectSnapshot();
+    const target = await deleteThread(snapshot!.project.id, snapshot!.activeThread!.id);
     const updated = await getProjectSnapshot(snapshot!.project.id, target.thread?.id);
 
-    expect(updated?.threads.some((thread) => thread.id === extra.id)).toBe(false);
-    expect(updated?.activeThread).toBeDefined();
+    expect(target.project?.id).toBe(snapshot!.project.id);
+    expect(target.thread).toBeUndefined();
+    expect(updated?.threads.some((thread) => thread.projectId === snapshot!.project.id)).toBe(false);
+    expect(updated?.activeThread).toBeUndefined();
   });
 });

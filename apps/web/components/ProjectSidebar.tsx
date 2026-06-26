@@ -10,7 +10,7 @@ export function ProjectSidebar({
 }: {
   projects: ProjectRecord[];
   threads: ThreadRecord[];
-  activeProjectId: string;
+  activeProjectId?: string;
 }) {
   const threadsByProject = new Map<string, ThreadRecord[]>();
   for (const thread of threads) {
@@ -20,7 +20,7 @@ export function ProjectSidebar({
   }
 
   return (
-    <aside className="flex min-h-0 flex-col border-r border-line bg-[#eee9dd] p-4" aria-label="Projects and threads">
+    <aside className="flex min-h-0 flex-col border-r border-line bg-[#eee9dd] p-4 max-md:h-[38dvh] max-md:shrink-0" aria-label="Projects and threads">
       <div className="mb-6 flex items-center gap-2">
         <div className="grid h-9 w-9 place-items-center rounded bg-ink text-paper">
           <BookOpen size={18} />
@@ -99,23 +99,25 @@ export function ProjectSidebar({
         </div>
       </div>
 
-      <form action={createThreadAction} className="mt-4 border-t border-line pt-4">
-        <input type="hidden" name="projectId" value={activeProjectId} />
-        <label className="text-xs font-medium text-neutral-600" htmlFor="thread-title">
-          New thread in project
-        </label>
-        <div className="mt-2 flex gap-2">
-          <input
-            id="thread-title"
-            name="title"
-            className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-sm"
-            placeholder="Topic"
-          />
-          <SubmitButton className="grid h-8 w-8 place-items-center rounded bg-rust text-white" aria-label="Create thread">
-            <MessageSquarePlus size={16} />
-          </SubmitButton>
-        </div>
-      </form>
+      {activeProjectId ? (
+        <form action={createThreadAction} className="mt-4 border-t border-line pt-4">
+          <input type="hidden" name="projectId" value={activeProjectId} />
+          <label className="text-xs font-medium text-neutral-600" htmlFor="thread-title">
+            New thread in project
+          </label>
+          <div className="mt-2 flex gap-2">
+            <input
+              id="thread-title"
+              name="title"
+              className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-sm"
+              placeholder="Topic"
+            />
+            <SubmitButton className="grid h-8 w-8 place-items-center rounded bg-rust text-white" aria-label="Create thread">
+              <MessageSquarePlus size={16} />
+            </SubmitButton>
+          </div>
+        </form>
+      ) : null}
     </aside>
   );
 }

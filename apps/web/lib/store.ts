@@ -425,12 +425,6 @@ export async function deleteProject(projectId: string) {
   store.notes = store.notes.filter((note) => note.projectId !== projectId);
   store.exports = store.exports.filter((record) => record.projectId !== projectId);
 
-  if (store.projects.length === 0) {
-    const seed = createSeedState();
-    store.projects.push(...seed.projects);
-    store.threads.push(...seed.threads);
-  }
-
   persistCurrentStore();
   logForksEvent("project.deleted", { projectId, provider: "memory" });
   return getNextProjectTarget();
@@ -451,11 +445,6 @@ export async function deleteThread(projectId: string, threadId: string) {
   store.spans = store.spans.filter((span) => !nodeIds.has(span.nodeId));
   store.branches = store.branches.filter((branch) => branch.sourceThreadId !== threadId);
   store.pins = store.pins.filter((pin) => pin.threadId !== threadId && !nodeIds.has(pin.targetId) && !branchIds.has(pin.targetId));
-
-  if (!store.threads.some((thread) => thread.projectId === projectId)) {
-    const stamp = now();
-    store.threads.push({ id: createId("thread"), projectId, title: "First learning thread", createdAt: stamp, updatedAt: stamp });
-  }
 
   persistCurrentStore();
   logForksEvent("thread.deleted", { projectId, threadId, provider: "memory" });
@@ -885,28 +874,16 @@ async function deletePrismaProject(projectId: string) {
   await prisma.project.delete({ where: { id: projectId } }).catch(() => null);
   const remainingProject = await prisma.project.findFirst({ orderBy: { createdAt: "asc" }, include: { threads: { orderBy: { createdAt: "asc" } } } });
 
-  if (!remainingProject) {
-    const createdProject = await createPrismaSeedProject();
-    const createdThread = await prisma.thread.findFirst({ where: { projectId: createdProject.id }, orderBy: { createdAt: "asc" } });
-    logForksEvent("project.deleted", { projectId, provider: "prisma" });
-    return { project: createdProject, thread: createdThread ?? undefined };
-  }
-
   logForksEvent("project.deleted", { projectId, provider: "prisma" });
-  return { project: remainingProject, thread: remainingProject.threads[0] };
+  return { project: remainingProject ?? undefined, thread: remainingProject?.threads[0] };
 }
 
 async function deletePrismaThread(projectId: string, threadId: string) {
   await prisma.thread.delete({ where: { id: threadId } }).catch(() => null);
-  let thread = await prisma.thread.findFirst({ where: { projectId }, orderBy: { createdAt: "asc" } });
-
-  if (!thread) {
-    thread = await prisma.thread.create({ data: { projectId, title: "First learning thread" } });
-  }
-
+  const thread = await prisma.thread.findFirst({ where: { projectId }, orderBy: { createdAt: "asc" } });
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   logForksEvent("thread.deleted", { projectId, threadId, provider: "prisma" });
-  return { project: project ?? undefined, thread };
+  return { project: project ?? undefined, thread: thread ?? undefined };
 }
 
 async function handlePrismaUserPrompt(projectId: string, threadId: string, prompt: string) {
