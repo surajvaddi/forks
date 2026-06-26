@@ -1,0 +1,21 @@
+{
+  "name": "forks",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @forks/web",
+    "build": "npm run build --workspace @forks/web",
+    "typecheck": "npm run typecheck --workspace @forks/web",
+    "test": "npm run test --workspace @forks/web",
+    "test:e2e": "npm run test:e2e --workspace @forks/web",
+    "db:generate": "npm run db:generate --workspace @forks/web",
+    "db:push": "npm run db:push --workspace @forks/web",
+    "db:seed": "npm run db:seed --workspace @forks/web"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
