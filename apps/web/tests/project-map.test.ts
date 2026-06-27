@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProjectMergeCandidates } from "@/lib/project-map";
+import { getProjectActivity, getProjectMergeCandidates } from "@/lib/project-map";
 import type { ProjectThreadSummary } from "@/lib/store";
 
 const stamp = new Date("2026-01-01T00:00:00.000Z");
@@ -38,5 +38,40 @@ describe("getProjectMergeCandidates", () => {
     expect(candidates[0].sourceThreadIds).toEqual(["child_a", "child_b"]);
     expect(candidates[0].contextSeed).toContain("A");
     expect(candidates[0].contextSeed).toContain("B");
+  });
+});
+
+describe("getProjectActivity", () => {
+  it("combines project activity in newest-first order", () => {
+    const activity = getProjectActivity({
+      threadSummaries: [
+        summary({ threadId: "thread", title: "Thread", lastActivityAt: new Date("2026-01-01T00:00:00.000Z"), lastTurnContent: "Latest thread turn" })
+      ],
+      pins: [
+        {
+          id: "pin",
+          projectId: "project_1",
+          targetId: "branch",
+          targetType: "BRANCH",
+          label: "Saved branch",
+          createdAt: new Date("2026-01-02T00:00:00.000Z")
+        }
+      ],
+      notes: [],
+      exports: [
+        {
+          id: "export",
+          projectId: "project_1",
+          type: "MARKDOWN",
+          title: "Study Note.md",
+          content: "# Study Note",
+          sourceIds: [],
+          createdAt: new Date("2026-01-03T00:00:00.000Z")
+        }
+      ]
+    });
+
+    expect(activity.map((item) => item.kind)).toEqual(["EXPORT", "PIN", "THREAD"]);
+    expect(activity[0].detail).toBe("Study Note.md");
   });
 });

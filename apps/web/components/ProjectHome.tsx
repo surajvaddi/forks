@@ -1,7 +1,7 @@
-import { Bookmark, GitBranch, MessageSquare, MessageSquarePlus, Workflow } from "lucide-react";
+import { Activity, Bookmark, GitBranch, MessageSquare, MessageSquarePlus, Workflow } from "lucide-react";
 import { createThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
-import { getProjectMergeCandidates } from "@/lib/project-map";
+import { getProjectActivity, getProjectMergeCandidates } from "@/lib/project-map";
 import type { ExportRecord, MergedNoteRecord, PinRecord, ProjectRecord, ProjectThreadSummary, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
 
 export function ProjectHome({
@@ -25,6 +25,7 @@ export function ProjectHome({
   const spinOffCount = threadLinks.filter((link) => link.type === "SPUN_OFF_FROM").length;
   const rootSummaries = threadSummaries.filter((summary) => !summary.sourceThreadId);
   const mergeCandidates = getProjectMergeCandidates(threadSummaries);
+  const activity = getProjectActivity({ threadSummaries, pins, notes, exports });
 
   return (
     <main className="min-h-0 overflow-auto bg-paper p-6 forks-scrollbar" aria-label="Project home">
@@ -125,6 +126,24 @@ export function ProjectHome({
               ))}
             </div>
           )}
+        </section>
+
+        <section aria-label="Recent project activity" data-testid="project-activity">
+          <div className="mb-3 flex items-center gap-2">
+            <Activity size={18} className="text-rust" />
+            <h3 className="text-lg font-semibold">Recent activity</h3>
+          </div>
+          <div className="rounded border border-line bg-white">
+            {activity.map((item, index) => (
+              <div key={item.id} className={`p-3 ${index > 0 ? "border-t border-line" : ""}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <span className="text-xs text-neutral-500">{item.kind.toLowerCase()}</span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{item.detail}</p>
+              </div>
+            ))}
+          </div>
         </section>
       </section>
     </main>

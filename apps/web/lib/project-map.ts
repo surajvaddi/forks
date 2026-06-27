@@ -1,5 +1,5 @@
 import { PlaceholderThreadCompositionAdapter, type ThreadMergeMode } from "./thread-composition";
-import type { ProjectThreadSummary } from "./store";
+import type { ExportRecord, MergedNoteRecord, PinRecord, ProjectThreadSummary } from "./store";
 
 export type ProjectMergeCandidate = {
   id: string;
@@ -8,6 +8,14 @@ export type ProjectMergeCandidate = {
   sourceThreadIds: string[];
   contextSeed: string;
   strategy: "THREAD_MERGE_PLACEHOLDER" | "THREAD_SPIN_OFF_PLACEHOLDER" | "LLM_SYNTHESIZED_CONTEXT";
+};
+
+export type ProjectActivityItem = {
+  id: string;
+  label: string;
+  detail: string;
+  createdAt: Date;
+  kind: "THREAD" | "PIN" | "NOTE" | "EXPORT";
 };
 
 const compositionAdapter = new PlaceholderThreadCompositionAdapter();
@@ -52,4 +60,53 @@ export function getProjectMergeCandidates(summaries: ProjectThreadSummary[]): Pr
   }
 
   return candidates;
+}
+
+export function getProjectActivity({
+  threadSummaries,
+  pins,
+  notes,
+  exports
+}: {
+  threadSummaries: ProjectThreadSummary[];
+  pins: PinRecord[];
+  notes: MergedNoteRecord[];
+  exports: ExportRecord[];
+}): ProjectActivityItem[] {
+  const threadItems = threadSummaries.map((summary) => ({
+    id: `thread_${summary.threadId}`,
+    label: summary.lastTurnContent ? "Thread updated" : "Thread created",
+    detail: summary.lastTurnContent ?? summary.title,
+    createdAt: summary.lastActivityAt,
+    kind: "THREAD" as const
+  }));
+
+  const pinItems = pins.map((pin) => ({
+    id: `pin_${pin.id}`,
+    label: "Context saved",
+    detail: pin.label,
+    createdAt: pin.createdAt,
+    kind: "PIN" as const
+  }));
+
+  const noteItems = notes.map((note) => ({
+    id: `note_${note.id}`,
+    label: "Note synthesized",
+    detail: note.title,
+    createdAt: note.updatedAt,
+    kind: "NOTE" as const
+  }));
+
+  const exportItems = exports.map((record) => ({
+    id: `export_${record.id}`,
+    label: `${record.type.toLowerCase()} exported`,
+    detail: record.title,
+    createdAt: record.createdAt,
+    kind: "EXPORT" as const
+  }));
+
+  // TODO: Replace this derived activity feed with persisted product events so
+  // LLM generation, powered-context transformations, merges, and exports can
+  // be audited and replayed across sessions.
+  return [...threadItems, ...pinItems, ...noteItems, ...exportItems].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 8);
 }
