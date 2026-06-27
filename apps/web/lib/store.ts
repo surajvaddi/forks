@@ -459,7 +459,7 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const threads = store.threads;
   const threadLinks = store.threadLinks.filter((link) => link.projectId === project.id);
   const projectThreads = threads.filter((item) => item.projectId === project.id);
-  const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : projectThreads[0];
+  const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : undefined;
   const turns = activeThread ? store.turns.filter((turn) => turn.threadId === activeThread.id) : [];
   const nodes = store.nodes.filter((node) => node.projectId === project.id);
   const spans = addCanonicalSpans(nodes, store.spans.filter((span) => span.projectId === project.id));
@@ -937,7 +937,7 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
   const threads = await prisma.thread.findMany({ where: { projectId: { in: projects.map((item) => item.id) } }, orderBy: { createdAt: "asc" } });
   const threadLinks = await prisma.threadLink.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
   const projectThreads = threads.filter((item) => item.projectId === project.id);
-  const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : projectThreads[0];
+  const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : undefined;
   const turns = activeThread ? await prisma.chatTurn.findMany({ where: { threadId: activeThread.id }, orderBy: { createdAt: "asc" } }) : [];
   const nodes = await prisma.node.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
   const spans = await prisma.span.findMany({ where: { projectId: project.id }, orderBy: { startOffset: "asc" } });

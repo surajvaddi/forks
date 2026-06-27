@@ -17,13 +17,18 @@ import {
   togglePin
 } from "@/lib/store";
 
+async function getSeedThreadSnapshot() {
+  const home = await getProjectSnapshot();
+  return getProjectSnapshot(home!.project.id, "thread_seed");
+}
+
 describe("chat to knowledge store", () => {
   beforeEach(() => {
     resetStoreForTests();
   });
 
   it("persists chat turns, answer node, spans, and latent branches", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     expect(snapshot?.activeThread).toBeDefined();
     const initialTurns = snapshot!.turns.length;
 
@@ -37,16 +42,18 @@ describe("chat to knowledge store", () => {
   });
 
   it("preloads Forks-purpose learning content", async () => {
-    const snapshot = await getProjectSnapshot();
+    const home = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
 
-    expect(snapshot?.project.title).toBe("Learning With Forks");
+    expect(home?.project.title).toBe("Learning With Forks");
+    expect(home?.activeThread).toBeUndefined();
     expect(snapshot?.activeThread?.title).toBe("How Forks helps you learn");
     expect(snapshot?.nodes.some((node) => node.title === "Learning Answer")).toBe(true);
     expect(snapshot?.nodes.some((node) => node.content.includes("reusable project knowledge"))).toBe(true);
   });
 
   it("deduplicates repeated latent learning branches while keeping spans consistent", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     const initialBranchLabels = snapshot!.branches.map((branch) => branch.label);
 
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "hi");
@@ -60,7 +67,7 @@ describe("chat to knowledge store", () => {
   });
 
   it("generates a branch lazily and can pin, merge, and export it", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     await handleUserPrompt(snapshot!.project.id, snapshot!.activeThread!.id, "Explain distributed job queues");
     const withBranches = (await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id))!;
     const branch = withBranches.branches[0];
@@ -99,7 +106,7 @@ describe("chat to knowledge store", () => {
   });
 
   it("deletes the last thread without recreating a fallback thread", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     const target = await deleteThread(snapshot!.project.id, snapshot!.activeThread!.id);
     const updated = await getProjectSnapshot(snapshot!.project.id, target.thread?.id);
 
@@ -110,7 +117,7 @@ describe("chat to knowledge store", () => {
   });
 
   it("creates a new thread from powered context", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     const thread = await createThreadFromContext(snapshot!.project.id, snapshot!.activeThread!.id, "core concept");
     const updated = await getProjectSnapshot(snapshot!.project.id, thread.id);
 
@@ -130,7 +137,7 @@ describe("chat to knowledge store", () => {
   });
 
   it("creates a thread link when spinning off a suggested path", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     const branch = snapshot!.branches[0];
     const thread = await spinOffBranchSuggestion(branch.id);
     const updated = await getProjectSnapshot(snapshot!.project.id, thread.id);
@@ -147,7 +154,7 @@ describe("chat to knowledge store", () => {
   });
 
   it("merges a spin-off back into the parent thread", async () => {
-    const snapshot = await getProjectSnapshot();
+    const snapshot = await getSeedThreadSnapshot();
     const child = await createThreadFromContext(snapshot!.project.id, snapshot!.activeThread!.id, "hidden prerequisite");
     const result = await mergeSpinOffBack(snapshot!.project.id, child.id);
     const parent = await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);

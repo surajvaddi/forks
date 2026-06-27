@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 async function expectPromptInViewport(page: Page) {
   const prompt = page.getByLabel("Chat prompt");
   await expect(prompt).toBeVisible();
+  await expect(prompt).toHaveAttribute("data-hydrated", "true");
   const box = await prompt.boundingBox();
   const viewport = page.viewportSize();
 
@@ -10,6 +11,12 @@ async function expectPromptInViewport(page: Page) {
   expect(viewport).not.toBeNull();
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+}
+
+async function openSeedThread(page: Page) {
+  await page.goto("/");
+  await page.getByRole("link", { name: "How Forks helps you learn" }).click();
+  await expectPromptInViewport(page);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -20,7 +27,19 @@ test("Forks learning flow renders", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Forks", exact: true })).toBeVisible();
+  await expect(page.getByTestId("project-home")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Learning With Forks" })).toBeVisible();
+});
+
+test("clicking a project opens project home without selecting a thread", async ({ page }) => {
+  await page.goto("/?project=project_seed&thread=thread_seed");
   await expectPromptInViewport(page);
+
+  await page.getByRole("link", { name: "Learning With Forks" }).click();
+  await expect(page).toHaveURL(/project=project_seed/);
+  await expect(page).not.toHaveURL(/thread=/);
+  await expect(page.getByTestId("project-home")).toBeVisible();
+  await expect(page.getByLabel("Chat prompt")).toHaveCount(0);
 });
 
 test("creates a project and opens its first thread", async ({ page }, testInfo) => {
@@ -61,7 +80,7 @@ test("deletes projects and threads from the sidebar", async ({ page }, testInfo)
 });
 
 test("submits a typed prompt with Enter", async ({ page }) => {
-  await page.goto("/");
+  await openSeedThread(page);
   await page.getByLabel("Chat prompt").fill("hi");
   await page.getByLabel("Chat prompt").press("Enter");
   await expect(page.getByLabel("Chat prompt")).toHaveValue("");
@@ -83,7 +102,7 @@ test("resizes the chat composer and keeps the transcript usable", async ({ page 
   test.skip(testInfo.project.name === "mobile", "Manual composer resizing is disabled on mobile.");
 
   await page.setViewportSize({ width: 1280, height: 700 });
-  await page.goto("/");
+  await openSeedThread(page);
   const composer = page.getByTestId("chat-composer");
   const handle = page.getByTestId("composer-resize-handle");
   const transcript = page.getByTestId("chat-transcript");
@@ -131,7 +150,7 @@ test("resizes the chat composer and keeps the transcript usable", async ({ page 
 test("expands and condenses hover definitions inline", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Hover definition editing is tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   await page.getByText("core concept").first().hover();
   await page.getByRole("button", { name: "Add definition for core concept to text" }).click();
 
@@ -148,7 +167,7 @@ test("expands and condenses hover definitions inline", async ({ page }, testInfo
 test("powers up selected answer text as draggable context", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Powered text selection is tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   await page.evaluate(() => {
     const paragraph = document.querySelector('[data-testid="answer-text"]');
     if (!paragraph) throw new Error("Answer text not found.");
@@ -180,7 +199,7 @@ test("powers up selected answer text as draggable context", async ({ page }, tes
 test("spins off powered text with an inline action", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Powered text actions are tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   await page.evaluate(() => {
     const answer = document.querySelector('[data-testid="answer-text"]');
     if (!answer) throw new Error("Answer text not found.");
@@ -216,7 +235,7 @@ test("spins off powered text with an inline action", async ({ page }, testInfo) 
 test("drops powered context on the workspace to create a new thread", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Powered context drops are tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
   expect(sourceHref).not.toBeNull();
   const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
@@ -253,7 +272,7 @@ test("drops powered context on the workspace to create a new thread", async ({ p
 test("previews powered context thread drops only over the workspace", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Powered context previews are tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
   expect(sourceHref).not.toBeNull();
   const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
@@ -309,7 +328,7 @@ test("previews powered context thread drops only over the workspace", async ({ p
 test("drops powered context into the composer without creating a thread", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Powered context composer drops are tested on pointer devices.");
 
-  await page.goto("/");
+  await openSeedThread(page);
   const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
   expect(sourceHref).not.toBeNull();
   const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
@@ -370,7 +389,7 @@ test("complete chat spin-off save synthesize export flow", async ({ page, browse
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
   await page.setViewportSize({ width: 1280, height: 560 });
-  await page.goto("/");
+  await openSeedThread(page);
   await page.getByLabel("Chat prompt").fill("Explain distributed job queues");
   await page.getByRole("button", { name: "Send prompt" }).click();
 

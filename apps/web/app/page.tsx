@@ -1,7 +1,8 @@
-import { FolderPlus, MessageSquarePlus } from "lucide-react";
-import { createProjectAction, createThreadAction } from "@/app/actions";
+import { FolderPlus } from "lucide-react";
+import { createProjectAction } from "@/app/actions";
 import { ChatThread } from "@/components/ChatThread";
 import { FlowDropSurface } from "@/components/FlowDropSurface";
+import { ProjectHome } from "@/components/ProjectHome";
 import { ProjectSidebar } from "@/components/ProjectSidebar";
 import { RightPanel } from "@/components/RightPanel";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -42,7 +43,14 @@ export default async function Home({
           threads={snapshot.threads}
         />
       ) : (
-        <EmptyThreads projectId={snapshot.project.id} projectTitle={snapshot.project.title} />
+        <ProjectHome
+          project={snapshot.project}
+          threads={snapshot.threads}
+          threadLinks={snapshot.threadLinks}
+          pins={snapshot.pins}
+          notes={snapshot.notes}
+          exports={snapshot.exports}
+        />
       )}
       <div className="min-h-0 max-lg:hidden">
         <RightPanel
@@ -88,40 +96,6 @@ function EmptyProjects() {
             />
             <SubmitButton className="inline-flex items-center gap-2 rounded bg-moss px-3 py-2 text-sm text-white" aria-label="Create project">
               <FolderPlus size={15} /> Create
-            </SubmitButton>
-          </div>
-        </form>
-      </section>
-    </main>
-  );
-}
-
-function EmptyThreads({ projectId, projectTitle }: { projectId: string; projectTitle: string }) {
-  return (
-    <main className="flex min-h-0 flex-col bg-paper max-md:flex-1" aria-label="Thread workspace">
-      <header className="border-b border-line bg-paper px-6 py-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Project</p>
-        <h2 className="text-2xl font-semibold">{projectTitle}</h2>
-      </header>
-      <section className="grid min-h-0 flex-1 place-items-center overflow-auto p-6 forks-scrollbar">
-        <form action={createThreadAction} className="w-full max-w-md rounded border border-line bg-white p-5 shadow-sm">
-          <input type="hidden" name="projectId" value={projectId} />
-          <div className="mb-4 flex items-center gap-2">
-            <MessageSquarePlus size={18} />
-            <h3 className="text-xl font-semibold">Create a thread</h3>
-          </div>
-          <label className="text-sm font-medium text-neutral-700" htmlFor="empty-thread-title">
-            Thread name
-          </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="empty-thread-title"
-              name="title"
-              className="min-w-0 flex-1 rounded border border-line bg-paper px-3 py-2 text-sm"
-              placeholder="New learning thread"
-            />
-            <SubmitButton className="inline-flex items-center gap-2 rounded bg-rust px-3 py-2 text-sm text-white" aria-label="Create thread">
-              <MessageSquarePlus size={15} /> Create
             </SubmitButton>
           </div>
         </form>
