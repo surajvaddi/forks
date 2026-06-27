@@ -2,8 +2,9 @@
 
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { usePoweredTextChunkDrop } from "@/hooks/usePoweredTextChunkDrop";
+import { createPoweredComposerChunk } from "@/lib/composer-chunk";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
-import { getPoweredContextInsertText, type PoweredContextPayload } from "@/lib/powered-context";
+import type { PoweredContextPayload } from "@/lib/powered-context";
 import { insertTextAtCaret } from "@/lib/text-insertion";
 
 const contextualFlowPlanner = new ContextualFlowPlanner();
@@ -37,15 +38,19 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
     const textarea = textareaRef.current ?? event.currentTarget;
     const selectionStart = textarea.selectionStart ?? value.length;
     const selectionEnd = textarea.selectionEnd ?? selectionStart;
-    const rawChunkText = getPoweredContextInsertText(payload);
+    const chunk = createPoweredComposerChunk(payload);
     // TODO: Replace plain text insertion with a structured composer document
     // model so powered chunks can preserve provenance, collapse/expand metadata,
     // and show source hover affordances without losing natural text editing.
+    // TODO: Preserve ComposerChunk records in composer state, render them as
+    // inline tokens, and serialize them alongside the submitted prompt.
+    // TODO: Allow inserted powered chunks to collapse/expand and expose source
+    // project/thread/node/span metadata on hover.
     // TODO: Use ContextualFlowPlanner.planInsertion to adapt chunk text to the
     // surrounding prompt, including grammar, punctuation, and user intent.
     const insertionPlan = contextualFlowPlanner.planInsertion({
       paragraph: value,
-      selectedText: rawChunkText,
+      selectedText: chunk.text,
       startOffset: selectionStart,
       endOffset: selectionEnd,
       operation: "INSERTION"
