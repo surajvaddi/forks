@@ -1,8 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { usePoweredTextChunkDrop } from "@/hooks/usePoweredTextChunkDrop";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
-import { getPoweredContextInsertText, hasPoweredContext, parsePoweredContext } from "@/lib/powered-context";
+import { getPoweredContextInsertText, type PoweredContextPayload } from "@/lib/powered-context";
 
 const contextualFlowPlanner = new ContextualFlowPlanner();
 
@@ -12,8 +13,10 @@ function insertTextAtSelection(value: string, insertText: string, selectionStart
 
 export function PromptTextarea({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isPoweredContextOver, setIsPoweredContextOver] = useState(false);
   const [pendingCaretOffset, setPendingCaretOffset] = useState<number | null>(null);
+  const { isPoweredContextOver, poweredContextDropHandlers } = usePoweredTextChunkDrop<HTMLTextAreaElement>({
+    onDrop: insertPoweredContext
+  });
 
   useLayoutEffect(() => {
     if (pendingCaretOffset === null) return;
@@ -33,34 +36,7 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
     event.currentTarget.form?.requestSubmit();
   }
 
-  function handleDragOver(event: DragEvent<HTMLTextAreaElement>) {
-    if (!hasPoweredContext(event.dataTransfer)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    setIsPoweredContextOver(true);
-  }
-
-  function handleDragEnter(event: DragEvent<HTMLTextAreaElement>) {
-    if (hasPoweredContext(event.dataTransfer)) {
-      setIsPoweredContextOver(true);
-    }
-  }
-
-  function handleDragLeave() {
-    setIsPoweredContextOver(false);
-  }
-
-  function handleDrop(event: DragEvent<HTMLTextAreaElement>) {
-    const payload = parsePoweredContext(event.dataTransfer);
-    if (!payload) {
-      setIsPoweredContextOver(false);
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    setIsPoweredContextOver(false);
-
+  function insertPoweredContext(payload: PoweredContextPayload, event: DragEvent<HTMLTextAreaElement>) {
     const textarea = textareaRef.current ?? event.currentTarget;
     const selectionStart = textarea.selectionStart ?? value.length;
     const selectionEnd = textarea.selectionEnd ?? selectionStart;
@@ -96,10 +72,7 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
       required
       value={value}
       onChange={(event) => onChange(event.currentTarget.value)}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      {...poweredContextDropHandlers}
       onKeyDown={handleKeyDown}
     />
   );
