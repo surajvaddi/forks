@@ -726,6 +726,39 @@ export async function generateBranch(branchId: string) {
   return branch;
 }
 
+export async function spinOffBranchSuggestion(branchId: string) {
+  if (shouldUsePrismaStore()) {
+    return spinOffPrismaBranchSuggestion(branchId);
+  }
+
+  const store = getStore();
+  const branch = store.branches.find((item) => item.id === branchId);
+  if (!branch || !branch.sourceThreadId) throw new Error("Suggested spin-off not found.");
+  const sourceText = branch.sourceSpanText ?? branch.label;
+  const thread = await createThreadFromContext(branch.projectId, branch.sourceThreadId, sourceText, {
+    sourceNodeId: branch.sourceNodeId,
+    sourceSpanId: branch.sourceSpanId
+  });
+  branch.status = "PREVIEWED";
+  branch.updatedAt = now();
+  persistCurrentStore();
+  return thread;
+}
+
+export async function dismissBranchSuggestion(branchId: string) {
+  if (shouldUsePrismaStore()) {
+    return prisma.branchCandidate.update({ where: { id: branchId }, data: { status: "DISCARDED" } });
+  }
+
+  const store = getStore();
+  const branch = store.branches.find((item) => item.id === branchId);
+  if (!branch) return null;
+  branch.status = "DISCARDED";
+  branch.updatedAt = now();
+  persistCurrentStore();
+  return branch;
+}
+
 export async function togglePin(projectId: string, targetId: string, targetType: PinTarget, label: string, threadId?: string) {
   if (shouldUsePrismaStore()) {
     return togglePrismaPin(projectId, targetId, targetType, label, threadId);
@@ -1200,6 +1233,17 @@ async function generatePrismaBranch(branchId: string) {
   });
   logForksEvent("branch.generated", { projectId: branch.projectId, branchId, provider: "prisma" });
   return updated;
+}
+
+async function spinOffPrismaBranchSuggestion(branchId: string) {
+  const branch = await prisma.branchCandidate.findUnique({ where: { id: branchId }, include: { sourceSpan: true } });
+  if (!branch || !branch.sourceThreadId) throw new Error("Suggested spin-off not found.");
+  const thread = await createPrismaThreadFromContext(branch.projectId, branch.sourceThreadId, branch.sourceSpan?.text ?? branch.label, {
+    sourceNodeId: branch.sourceNodeId,
+    sourceSpanId: branch.sourceSpanId ?? undefined
+  });
+  await prisma.branchCandidate.update({ where: { id: branchId }, data: { status: "PREVIEWED" } });
+  return thread;
 }
 
 async function togglePrismaPin(projectId: string, targetId: string, targetType: PinTarget, label: string, threadId?: string) {

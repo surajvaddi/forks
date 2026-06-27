@@ -12,6 +12,7 @@ import {
   handleUserPrompt,
   mergePins,
   resetStoreForTests,
+  spinOffBranchSuggestion,
   togglePin
 } from "@/lib/store";
 
@@ -125,5 +126,22 @@ describe("chat to knowledge store", () => {
     expect(updated?.turns[0].role).toBe("USER");
     expect(updated?.turns[0].content).toContain("Start a new learning flow");
     expect(updated?.turns[0].content).toContain("core concept");
+  });
+
+  it("creates a thread link when spinning off a suggested path", async () => {
+    const snapshot = await getProjectSnapshot();
+    const branch = snapshot!.branches[0];
+    const thread = await spinOffBranchSuggestion(branch.id);
+    const updated = await getProjectSnapshot(snapshot!.project.id, thread.id);
+
+    expect(updated?.activeThread?.id).toBe(thread.id);
+    expect(updated?.threadLinks).toContainEqual(
+      expect.objectContaining({
+        sourceThreadId: branch.sourceThreadId,
+        targetThreadId: thread.id,
+        sourceText: branch.sourceSpanText,
+        type: "SPUN_OFF_FROM"
+      })
+    );
   });
 });

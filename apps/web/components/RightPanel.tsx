@@ -1,5 +1,14 @@
 import { Download, GitBranch, Layers3, Pin, Sparkles } from "lucide-react";
-import { expandBranchAction, exportMarkdownAction, exportPdfAction, mergePinsAction, togglePinAction, updateNoteAction } from "@/app/actions";
+import {
+  dismissBranchAction,
+  expandBranchAction,
+  exportMarkdownAction,
+  exportPdfAction,
+  mergePinsAction,
+  spinOffBranchAction,
+  togglePinAction,
+  updateNoteAction
+} from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import type { BranchRecord, ExportRecord, MergedNoteRecord, NodeRecord, PinRecord, ProjectRecord } from "@/lib/store";
 
@@ -48,7 +57,13 @@ export function RightPanel({
                     </div>
                     <p className="mt-2 text-sm leading-5 text-neutral-700">{branch.preview}</p>
                     {generatedNode ? <p className="mt-3 rounded bg-paper p-2 text-sm leading-5">{generatedNode.content}</p> : null}
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <form action={spinOffBranchAction}>
+                        <input type="hidden" name="branchId" value={branch.id} />
+                        <SubmitButton className="inline-flex items-center gap-1 rounded bg-moss px-2.5 py-1.5 text-xs text-white">
+                          <GitBranch size={13} /> Spin off
+                        </SubmitButton>
+                      </form>
                       <form action={expandBranchAction}>
                         <input type="hidden" name="branchId" value={branch.id} />
                         <SubmitButton className="inline-flex items-center gap-1 rounded bg-ink px-2.5 py-1.5 text-xs text-paper">
@@ -62,6 +77,12 @@ export function RightPanel({
                         <input type="hidden" name="label" value={branch.label} />
                         <SubmitButton className={`inline-flex items-center gap-1 rounded border px-2.5 py-1.5 text-xs ${pinned ? "border-moss bg-skywash" : "border-line bg-paper"}`}>
                           <Pin size={13} /> {pinned ? "Saved" : "Save"}
+                        </SubmitButton>
+                      </form>
+                      <form action={dismissBranchAction}>
+                        <input type="hidden" name="branchId" value={branch.id} />
+                        <SubmitButton className="rounded border border-line bg-paper px-2.5 py-1.5 text-xs text-neutral-600">
+                          Dismiss
                         </SubmitButton>
                       </form>
                     </div>

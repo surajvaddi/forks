@@ -8,11 +8,13 @@ import {
   createThreadFromContext,
   deleteProject,
   deleteThread,
+  dismissBranchSuggestion,
   exportMarkdown,
   exportPdf,
   generateBranch,
   handleUserPrompt,
   mergePins,
+  spinOffBranchSuggestion,
   togglePin,
   updateNote
 } from "@/lib/store";
@@ -115,6 +117,21 @@ export async function expandBranchAction(formData: FormData) {
   const branchId = getString(formData, "branchId");
   if (!branchId) return;
   await generateBranch(branchId);
+  revalidatePath("/");
+}
+
+export async function spinOffBranchAction(formData: FormData) {
+  const branchId = getString(formData, "branchId");
+  if (!branchId) return;
+  const thread = await spinOffBranchSuggestion(branchId);
+  revalidatePath("/");
+  redirect(`/?project=${thread.projectId}&thread=${thread.id}`);
+}
+
+export async function dismissBranchAction(formData: FormData) {
+  const branchId = getString(formData, "branchId");
+  if (!branchId) return;
+  await dismissBranchSuggestion(branchId);
   revalidatePath("/");
 }
 
