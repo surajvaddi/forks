@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { BranchDraft, BranchStatus, BranchType, PinTarget, SpanDraft } from "./domain";
+import type { BranchDraft, BranchStatus, BranchType, PinTarget, SpanDraft, ThreadLinkType } from "./domain";
 import { createId } from "./ids";
 import { getLlmAdapter } from "./llm";
 import { rankBranches } from "./branch-ranking";
@@ -24,6 +24,18 @@ export type ThreadRecord = {
   title: string;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type ThreadLinkRecord = {
+  id: string;
+  projectId: string;
+  sourceThreadId: string;
+  targetThreadId: string;
+  sourceNodeId?: string;
+  sourceSpanId?: string;
+  sourceText?: string;
+  type: ThreadLinkType;
+  createdAt: Date;
 };
 
 export type ChatTurnRecord = {
@@ -100,6 +112,7 @@ export type ExportRecord = {
 type StoreState = {
   projects: ProjectRecord[];
   threads: ThreadRecord[];
+  threadLinks: ThreadLinkRecord[];
   turns: ChatTurnRecord[];
   nodes: NodeRecord[];
   spans: SpanRecord[];
@@ -288,6 +301,7 @@ function createSeedState(): StoreState {
   return {
     projects: [project],
     threads: [thread],
+    threadLinks: [],
     turns: [userTurn, assistantTurn],
     nodes: [answerNode],
     spans,
@@ -306,6 +320,7 @@ function reviveStore(raw: StoreState): StoreState {
   return {
     projects: raw.projects.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
     threads: raw.threads.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
+    threadLinks: (raw.threadLinks ?? []).map((item) => ({ ...item, createdAt: reviveDate(item.createdAt) })),
     turns: raw.turns.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt) })),
     nodes: raw.nodes.map((item) => ({ ...item, createdAt: reviveDate(item.createdAt), updatedAt: reviveDate(item.updatedAt) })),
     spans: raw.spans,
@@ -338,6 +353,7 @@ function migrateSeedStore(store: StoreState) {
   return {
     projects: [...seed.projects, ...store.projects.filter((project) => project.id !== "project_seed")],
     threads: [...seed.threads, ...store.threads.filter((thread) => thread.projectId !== "project_seed")],
+    threadLinks: store.threadLinks?.filter((link) => link.projectId !== "project_seed") ?? [],
     turns: [...seed.turns, ...store.turns.filter((turn) => turn.projectId !== "project_seed")],
     nodes: [...seed.nodes, ...store.nodes.filter((node) => node.projectId !== "project_seed")],
     spans: [...seed.spans, ...store.spans.filter((span) => span.projectId !== "project_seed")],
@@ -441,6 +457,7 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const project = projectId ? store.projects.find((item) => item.id === projectId) : store.projects[0];
   if (!project) return null;
   const threads = store.threads;
+  const threadLinks = store.threadLinks.filter((link) => link.projectId === project.id);
   const projectThreads = threads.filter((item) => item.projectId === project.id);
   const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : projectThreads[0];
   const turns = activeThread ? store.turns.filter((turn) => turn.threadId === activeThread.id) : [];
@@ -451,7 +468,7 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const notes = store.notes.filter((note) => note.projectId === project.id);
   const exports = store.exports.filter((record) => record.projectId === project.id);
 
-  return { project, projects: store.projects, threads, activeThread, turns, nodes, spans, branches, pins, notes, exports };
+  return { project, projects: store.projects, threads, threadLinks, activeThread, turns, nodes, spans, branches, pins, notes, exports };
 }
 
 export async function createProject(title: string) {
@@ -492,9 +509,14 @@ function createContextThreadPrompt(selectedText: string) {
   return `Start a new learning flow from this highlighted context:\n\n${selectedText}`;
 }
 
-export async function createThreadFromContext(projectId: string, sourceThreadId: string, selectedText: string) {
+export async function createThreadFromContext(
+  projectId: string,
+  sourceThreadId: string,
+  selectedText: string,
+  source?: { sourceNodeId?: string; sourceSpanId?: string }
+) {
   if (shouldUsePrismaStore()) {
-    return createPrismaThreadFromContext(projectId, sourceThreadId, selectedText);
+    return createPrismaThreadFromContext(projectId, sourceThreadId, selectedText, source);
   }
 
   const store = getStore();
@@ -512,6 +534,17 @@ export async function createThreadFromContext(projectId: string, sourceThreadId:
 
   store.threads.push(thread);
   store.turns.push(turn);
+  store.threadLinks.push({
+    id: createId("thread_link"),
+    projectId,
+    sourceThreadId,
+    targetThreadId: thread.id,
+    sourceNodeId: source?.sourceNodeId,
+    sourceSpanId: source?.sourceSpanId,
+    sourceText: selectedText,
+    type: "SPUN_OFF_FROM",
+    createdAt: stamp
+  });
   persistCurrentStore();
   return thread;
 }
@@ -529,6 +562,7 @@ export async function deleteProject(projectId: string) {
 
   store.projects = store.projects.filter((project) => project.id !== projectId);
   store.threads = store.threads.filter((thread) => thread.projectId !== projectId);
+  store.threadLinks = store.threadLinks.filter((link) => link.projectId !== projectId);
   store.turns = store.turns.filter((turn) => !threadIds.has(turn.threadId));
   store.nodes = store.nodes.filter((node) => node.projectId !== projectId);
   store.spans = store.spans.filter((span) => !nodeIds.has(span.nodeId));
@@ -552,6 +586,7 @@ export async function deleteThread(projectId: string, threadId: string) {
   const branchIds = new Set(store.branches.filter((branch) => branch.sourceThreadId === threadId).map((branch) => branch.id));
 
   store.threads = store.threads.filter((thread) => thread.id !== threadId);
+  store.threadLinks = store.threadLinks.filter((link) => link.sourceThreadId !== threadId && link.targetThreadId !== threadId);
   store.turns = store.turns.filter((turn) => turn.threadId !== threadId);
   store.nodes = store.nodes.filter((node) => node.threadId !== threadId);
   store.spans = store.spans.filter((span) => !nodeIds.has(span.nodeId));
@@ -814,6 +849,7 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
   const projectRecord: ProjectRecord = { ...project, description: project.description ?? undefined };
 
   const threads = await prisma.thread.findMany({ where: { projectId: { in: projects.map((item) => item.id) } }, orderBy: { createdAt: "asc" } });
+  const threadLinks = await prisma.threadLink.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
   const projectThreads = threads.filter((item) => item.projectId === project.id);
   const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : projectThreads[0];
   const turns = activeThread ? await prisma.chatTurn.findMany({ where: { threadId: activeThread.id }, orderBy: { createdAt: "asc" } }) : [];
@@ -872,6 +908,17 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
     project: projectRecord,
     projects: projects.map((item) => ({ ...item, description: item.description ?? undefined })),
     threads,
+    threadLinks: threadLinks.map((link) => ({
+      id: link.id,
+      projectId: link.projectId,
+      sourceThreadId: link.sourceThreadId,
+      targetThreadId: link.targetThreadId,
+      sourceNodeId: link.sourceNodeId ?? undefined,
+      sourceSpanId: link.sourceSpanId ?? undefined,
+      sourceText: link.sourceText ?? undefined,
+      type: link.type as ThreadLinkType,
+      createdAt: link.createdAt
+    })),
     activeThread,
     turns: turns.map((turn) => ({ ...turn, role: turn.role as "USER" | "ASSISTANT", nodeId: undefined })),
     nodes: nodeRecords,
@@ -994,7 +1041,7 @@ async function createPrismaThread(projectId: string, title: string) {
   return prisma.thread.create({ data: { projectId, title } });
 }
 
-async function createPrismaThreadFromContext(projectId: string, _sourceThreadId: string, selectedText: string) {
+async function createPrismaThreadFromContext(projectId: string, sourceThreadId: string, selectedText: string, source?: { sourceNodeId?: string; sourceSpanId?: string }) {
   const thread = await prisma.thread.create({ data: { projectId, title: createContextThreadTitle(selectedText) } });
   await prisma.chatTurn.create({
     data: {
@@ -1002,6 +1049,17 @@ async function createPrismaThreadFromContext(projectId: string, _sourceThreadId:
       threadId: thread.id,
       role: "USER",
       content: createContextThreadPrompt(selectedText)
+    }
+  });
+  await prisma.threadLink.create({
+    data: {
+      projectId,
+      sourceThreadId,
+      targetThreadId: thread.id,
+      sourceNodeId: source?.sourceNodeId,
+      sourceSpanId: source?.sourceSpanId,
+      sourceText: selectedText,
+      type: "SPUN_OFF_FROM"
     }
   });
   return thread;

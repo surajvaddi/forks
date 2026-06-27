@@ -113,6 +113,14 @@ describe("chat to knowledge store", () => {
     const updated = await getProjectSnapshot(snapshot!.project.id, thread.id);
 
     expect(updated?.activeThread?.title).toBe("Flow: core concept");
+    expect(updated?.threadLinks).toContainEqual(
+      expect.objectContaining({
+        sourceThreadId: snapshot!.activeThread!.id,
+        targetThreadId: thread.id,
+        sourceText: "core concept",
+        type: "SPUN_OFF_FROM"
+      })
+    );
     expect(updated?.turns).toHaveLength(1);
     expect(updated?.turns[0].role).toBe("USER");
     expect(updated?.turns[0].content).toContain("Start a new learning flow");

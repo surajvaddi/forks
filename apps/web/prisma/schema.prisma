@@ -15,6 +15,7 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   threads Thread[]
+  threadLinks ThreadLink[]
   nodes   Node[]
   spans   Span[]
   concepts Concept[]
@@ -36,6 +37,27 @@ model Thread {
   turns   ChatTurn[]
   nodes   Node[]
   pins    Pin[]
+  outgoingLinks ThreadLink[] @relation("ThreadLinkSource")
+  incomingLinks ThreadLink[] @relation("ThreadLinkTarget")
+}
+
+model ThreadLink {
+  id             String         @id @default(cuid())
+  projectId      String
+  sourceThreadId String
+  targetThreadId String
+  sourceNodeId   String?
+  sourceSpanId   String?
+  sourceText     String?
+  type           ThreadLinkType
+  createdAt      DateTime       @default(now())
+
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceThread Thread  @relation("ThreadLinkSource", fields: [sourceThreadId], references: [id], onDelete: Cascade)
+  targetThread Thread  @relation("ThreadLinkTarget", fields: [targetThreadId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sourceThreadId])
+  @@index([projectId, targetThreadId])
 }
 
 model ChatTurn {
@@ -237,6 +259,12 @@ enum PinTarget {
   BRANCH
   ARTIFACT
   NOTE
+}
+
+enum ThreadLinkType {
+  SPUN_OFF_FROM
+  MERGED_INTO
+  REFERENCES
 }
 
 enum ExportType {

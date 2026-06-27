@@ -41,6 +41,9 @@ export type BranchStatus = (typeof branchStatuses)[number];
 export const pinTargets = ["NODE", "SPAN", "CONCEPT", "BRANCH", "ARTIFACT", "NOTE"] as const;
 export type PinTarget = (typeof pinTargets)[number];
 
+export const threadLinkTypes = ["SPUN_OFF_FROM", "MERGED_INTO", "REFERENCES"] as const;
+export type ThreadLinkType = (typeof threadLinkTypes)[number];
+
 export type SpanDraft = {
   text: string;
   startOffset: number;
