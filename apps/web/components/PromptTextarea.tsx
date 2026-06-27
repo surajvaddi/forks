@@ -2,14 +2,22 @@
 
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { usePoweredTextChunkDrop } from "@/hooks/usePoweredTextChunkDrop";
-import { createPoweredComposerChunk } from "@/lib/composer-chunk";
+import { createPoweredComposerChunk, type ComposerChunk } from "@/lib/composer-chunk";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
 import type { PoweredContextPayload } from "@/lib/powered-context";
 import { insertTextAtCaret } from "@/lib/text-insertion";
 
 const contextualFlowPlanner = new ContextualFlowPlanner();
 
-export function PromptTextarea({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function PromptTextarea({
+  value,
+  onChange,
+  onChunkCreated
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onChunkCreated?: (chunk: ComposerChunk) => void;
+}) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [pendingCaretOffset, setPendingCaretOffset] = useState<number | null>(null);
   const { isPoweredContextOver, poweredContextDropHandlers } = usePoweredTextChunkDrop<HTMLTextAreaElement>({
@@ -39,6 +47,7 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
     const selectionStart = textarea.selectionStart ?? value.length;
     const selectionEnd = textarea.selectionEnd ?? selectionStart;
     const chunk = createPoweredComposerChunk(payload);
+    onChunkCreated?.(chunk);
     // TODO: Replace plain text insertion with a structured composer document
     // model so powered chunks can preserve provenance, collapse/expand metadata,
     // and show source hover affordances without losing natural text editing.

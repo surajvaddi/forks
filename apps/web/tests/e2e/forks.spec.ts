@@ -344,6 +344,9 @@ test("drops powered context into the composer without creating a thread", async 
   }, { projectId, threadId });
 
   await expect(prompt).toHaveValue("Explain core concept next");
+  await expect(page.getByTestId("composer-context-row")).toContainText("core concept");
+  await page.getByRole("button", { name: "Remove context core concept" }).click();
+  await expect(page.getByTestId("composer-context-row")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Flow: core concept" })).toHaveCount(0);
 });
 

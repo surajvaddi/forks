@@ -37,6 +37,16 @@ describe("PromptTextarea powered context insertion", () => {
     expect(prompt.value).toBe("core concept");
   });
 
+  it("emits a structured composer chunk when powered context is dropped", () => {
+    const chunks: string[] = [];
+    render(<PromptTextarea value="" onChange={() => undefined} onChunkCreated={(chunk) => chunks.push(chunk.sourceThreadId)} />);
+    const prompt = screen.getByLabelText("Chat prompt") as HTMLTextAreaElement;
+
+    fireEvent.drop(prompt, { dataTransfer: transfer({ [poweredContextMimeType]: serializePoweredContext(payload) }) });
+
+    expect(chunks).toEqual(["thread_1"]);
+  });
+
   it("drops powered context into the middle of existing composer text", () => {
     render(<ControlledPrompt initialValue="Explain  please" />);
     const prompt = screen.getByLabelText("Chat prompt") as HTMLTextAreaElement;
