@@ -2,11 +2,11 @@
 
 import { Minus, Plus } from "lucide-react";
 import { useState } from "react";
-import { ContextualDefinitionInsertionPlanner } from "@/lib/contextual-definition-insertion";
+import { ContextualFlowPlanner } from "@/lib/contextual-flow";
 import { splitTextBySpans } from "@/lib/render-spans";
 import type { SpanRecord } from "@/lib/store";
 
-const definitionInsertionPlanner = new ContextualDefinitionInsertionPlanner();
+const contextualFlowPlanner = new ContextualFlowPlanner();
 
 export function ExpandableAnswerText({ content, spans }: { content: string; spans: SpanRecord[] }) {
   const [expandedSpanIds, setExpandedSpanIds] = useState<Set<string>>(new Set());
@@ -33,20 +33,21 @@ export function ExpandableAnswerText({ content, spans }: { content: string; span
 
         const spanId = part.span.id ?? `${part.span.startOffset}-${part.span.endOffset}`;
         const definition = part.span.shortDefinition ?? `${part.text}: a useful concept to expand.`;
-        const insertionPlan = definitionInsertionPlanner.adaptDefinitionForParagraph({
+        const insertionPlan = contextualFlowPlanner.planInsertion({
           paragraph: content,
-          term: part.text,
-          definition,
+          selectedText: part.text,
+          supportingText: definition,
           startOffset: part.span.startOffset,
-          endOffset: part.span.endOffset
+          endOffset: part.span.endOffset,
+          operation: "INSERTION"
         });
         const isExpanded = expandedSpanIds.has(spanId);
 
         if (isExpanded) {
           return (
             <span key={spanId} className="group/expanded inline" data-testid="expanded-definition">
-              <mark className="rounded bg-transparent text-ink underline decoration-moss decoration-2 underline-offset-4">{insertionPlan.termText}</mark>
-              <span className="ml-1 text-sm leading-6 text-neutral-600">{insertionPlan.insertedText}</span>
+              <mark className="rounded bg-transparent text-ink underline decoration-moss decoration-2 underline-offset-4">{insertionPlan.displayedText}</mark>
+              <span className="ml-1 text-sm leading-6 text-neutral-600">{insertionPlan.contextualText}</span>
               <button
                 type="button"
                 className="invisible ml-1 inline-flex h-5 w-5 translate-y-0.5 items-center justify-center rounded border border-line bg-white text-neutral-600 opacity-0 transition group-hover/expanded:visible group-hover/expanded:opacity-100 group-focus-within/expanded:visible group-focus-within/expanded:opacity-100 hover:border-moss hover:text-ink"
