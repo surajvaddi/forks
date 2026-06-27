@@ -1,6 +1,7 @@
-import { Bookmark, GitBranch, MessageSquare, MessageSquarePlus } from "lucide-react";
+import { Bookmark, GitBranch, MessageSquare, MessageSquarePlus, Workflow } from "lucide-react";
 import { createThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
+import { getProjectMergeCandidates } from "@/lib/project-map";
 import type { ExportRecord, MergedNoteRecord, PinRecord, ProjectRecord, ProjectThreadSummary, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
 
 export function ProjectHome({
@@ -23,6 +24,7 @@ export function ProjectHome({
   const projectThreads = threads.filter((thread) => thread.projectId === project.id);
   const spinOffCount = threadLinks.filter((link) => link.type === "SPUN_OFF_FROM").length;
   const rootSummaries = threadSummaries.filter((summary) => !summary.sourceThreadId);
+  const mergeCandidates = getProjectMergeCandidates(threadSummaries);
 
   return (
     <main className="min-h-0 overflow-auto bg-paper p-6 forks-scrollbar" aria-label="Project home">
@@ -95,6 +97,30 @@ export function ProjectHome({
                   <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{pin.targetType.toLowerCase()}</p>
                   <p className="mt-1 line-clamp-2 text-sm font-medium">{pin.label}</p>
                   {pin.note ? <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{pin.note}</p> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section aria-label="Merge candidates" data-testid="project-merge-candidates">
+          <div className="mb-3 flex items-center gap-2">
+            <Workflow size={18} className="text-moss" />
+            <h3 className="text-lg font-semibold">Merge candidates</h3>
+          </div>
+          {mergeCandidates.length === 0 ? (
+            <p className="rounded border border-line bg-white p-4 text-sm text-neutral-600">
+              Spin off context from a thread, then Forks will suggest where it can be merged or consolidated.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {mergeCandidates.map((candidate) => (
+                <div key={candidate.id} className="rounded border border-line bg-white p-3 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold">{candidate.title}</p>
+                    <span className="rounded bg-paper px-2 py-0.5 text-xs text-neutral-600">{candidate.strategy.replaceAll("_", " ").toLowerCase()}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm text-neutral-600">{candidate.contextSeed}</p>
                 </div>
               ))}
             </div>

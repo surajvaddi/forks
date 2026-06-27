@@ -31,6 +31,7 @@ test("Forks learning flow renders", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Learning With Forks" })).toBeVisible();
   await expect(page.getByTestId("project-flow-tree").getByRole("link", { name: /How Forks helps you learn/ })).toBeVisible();
   await expect(page.getByTestId("project-saved-context")).toContainText("Save answers, spans, concepts");
+  await expect(page.getByTestId("project-merge-candidates")).toContainText("Spin off context from a thread");
 });
 
 test("clicking a project opens project home without selecting a thread", async ({ page }) => {
