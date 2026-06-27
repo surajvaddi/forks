@@ -47,6 +47,7 @@ export default async function Home({
           project={snapshot.project}
           threads={snapshot.threads}
           threadLinks={snapshot.threadLinks}
+          threadSummaries={snapshot.threadSummaries}
           pins={snapshot.pins}
           notes={snapshot.notes}
           exports={snapshot.exports}
