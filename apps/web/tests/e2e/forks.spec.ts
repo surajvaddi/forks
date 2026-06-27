@@ -170,7 +170,10 @@ test("powers up selected answer text as draggable context", async ({ page }, tes
     paragraph.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
   });
 
-  await expect(page.getByTestId("powered-selection")).toContainText("core concept");
+  const poweredSelection = page.getByTestId("powered-selection");
+  await expect(poweredSelection).toContainText("core concept");
+  await expect(poweredSelection).toHaveAttribute("draggable", "true");
+  await expect(page.getByText(/Powered context:/)).toHaveCount(0);
 });
 
 test("drops powered context on the workspace to create a new thread", async ({ page }, testInfo) => {

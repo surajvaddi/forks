@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Plus, Zap } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -94,6 +94,61 @@ function rehypeAnswerSpans(spans: SpanRecord[]) {
   };
 }
 
+function rehypePoweredSelection(selectedText: string) {
+  return (tree: HastNode) => {
+    const normalizedSelection = selectedText.trim();
+    if (!normalizedSelection) return;
+
+    let hasWrappedSelection = false;
+
+    function splitTextNode(node: HastNode) {
+      if (!node.value || hasWrappedSelection) return [node];
+      const start = node.value.indexOf(normalizedSelection);
+      if (start < 0) return [node];
+
+      const end = start + normalizedSelection.length;
+      const nodes: HastNode[] = [];
+      if (start > 0) {
+        nodes.push({ type: "text", value: node.value.slice(0, start) });
+      }
+      nodes.push({
+        type: "element",
+        tagName: "span",
+        properties: {
+          "data-forks-powered-selection": normalizedSelection
+        },
+        children: [{ type: "text", value: node.value.slice(start, end) }]
+      });
+      if (end < node.value.length) {
+        nodes.push({ type: "text", value: node.value.slice(end) });
+      }
+      hasWrappedSelection = true;
+      return nodes;
+    }
+
+    function visit(node: HastNode, skipFormattingSurface = false) {
+      const shouldSkip =
+        skipFormattingSurface ||
+        node.tagName === "code" ||
+        node.tagName === "pre" ||
+        (typeof node.properties?.className === "string" && node.properties.className.includes("katex")) ||
+        (Array.isArray(node.properties?.className) && node.properties.className.includes("katex"));
+
+      if (!node.children || shouldSkip || hasWrappedSelection) return;
+
+      node.children = node.children.flatMap((child) => {
+        if (child.type === "text") {
+          return splitTextNode(child);
+        }
+        visit(child, shouldSkip);
+        return [child];
+      });
+    }
+
+    visit(tree);
+  };
+}
+
 export function ExpandableAnswerText({
   content,
   spans,
@@ -137,13 +192,13 @@ export function ExpandableAnswerText({
     setPoweredSelection(selectedText);
   }
 
-  function handlePoweredDragStart(event: DragEvent<HTMLButtonElement>) {
-    const startOffset = content.indexOf(poweredSelection);
+  function handlePoweredDragStart(event: DragEvent<HTMLElement>, selectedText = poweredSelection) {
+    const startOffset = content.indexOf(selectedText);
     const extractionPlan = contextualFlowPlanner.planExtraction({
       paragraph: content,
-      selectedText: poweredSelection,
+      selectedText,
       startOffset,
-      endOffset: startOffset + poweredSelection.length,
+      endOffset: startOffset + selectedText.length,
       operation: "EXTRACTION"
     });
 
@@ -152,9 +207,9 @@ export function ExpandableAnswerText({
     const payload = {
       projectId,
       sourceThreadId,
-      selectedText: poweredSelection,
+      selectedText,
       contextualText: extractionPlan.contextualText,
-      displayLabel: poweredSelection,
+      displayLabel: selectedText,
       operation: extractionPlan.operation
     };
 
@@ -168,12 +223,12 @@ export function ExpandableAnswerText({
       <div
         ref={contentRef}
         data-testid="answer-text"
-        className={`forks-markdown text-[15px] leading-7 transition ${poweredSelection ? "rounded bg-skywash/35 shadow-[0_0_0_3px_rgba(141,166,139,0.16)]" : ""}`}
+        className="forks-markdown text-[15px] leading-7 transition"
         onMouseUp={powerSelectedText}
       >
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[[rehypeAnswerSpans, spans], rehypeKatex]}
+          rehypePlugins={[[rehypeAnswerSpans, spans], [rehypePoweredSelection, poweredSelection], rehypeKatex]}
           components={{
             code({ className, children, ...props }) {
               const isBlock = className?.includes("language-");
@@ -192,6 +247,25 @@ export function ExpandableAnswerText({
             },
             span({ children, ...props }) {
               const spanProps = props as Record<string, unknown>;
+              const poweredText = typeof spanProps["data-forks-powered-selection"] === "string" ? spanProps["data-forks-powered-selection"] : "";
+              if (poweredText) {
+                return (
+                  <span
+                    {...props}
+                    draggable
+                    data-testid="powered-selection"
+                    className="group/powered inline cursor-grab rounded px-0.5 text-ink shadow-[0_0_0_2px_rgba(141,166,139,0.16),0_0_14px_rgba(141,166,139,0.18)] outline outline-1 outline-moss/20 transition hover:outline-moss/45 active:cursor-grabbing"
+                    title="Drag powered context"
+                    onDragStart={(event) => handlePoweredDragStart(event, poweredText)}
+                  >
+                    {children}
+                    <span className="ml-1 inline-block text-[10px] leading-none text-moss opacity-0 transition group-hover/powered:opacity-80" aria-hidden="true">
+                      //
+                    </span>
+                  </span>
+                );
+              }
+
               const spanId = typeof spanProps["data-forks-span-id"] === "string" ? spanProps["data-forks-span-id"] : "";
               if (!spanId) {
                 return <span {...props}>{children}</span>;
@@ -256,17 +330,6 @@ export function ExpandableAnswerText({
           {content}
         </ReactMarkdown>
       </div>
-      {poweredSelection ? (
-        <button
-          type="button"
-          draggable
-          data-testid="powered-selection"
-          className="mt-3 inline-flex cursor-grab items-center gap-2 rounded border border-moss bg-white px-3 py-2 text-xs font-semibold text-ink shadow-[0_0_0_3px_rgba(141,166,139,0.14)] active:cursor-grabbing"
-          onDragStart={handlePoweredDragStart}
-        >
-          <Zap size={13} /> Powered context: {poweredSelection}
-        </button>
-      ) : null}
     </>
   );
 }
