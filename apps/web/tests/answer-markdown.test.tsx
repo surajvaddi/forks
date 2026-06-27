@@ -4,7 +4,7 @@ import { ExpandableAnswerText } from "@/components/ExpandableAnswerText";
 import type { SpanRecord } from "@/lib/store";
 
 function renderAnswer(content: string, spans: SpanRecord[] = []) {
-  return render(<ExpandableAnswerText content={content} spans={spans} projectId="project_test" sourceThreadId="thread_test" />);
+  return render(<ExpandableAnswerText content={content} spans={spans} projectId="project_test" sourceThreadId="thread_test" sourceNodeId="node_test" />);
 }
 
 describe("assistant answer markdown rendering", () => {

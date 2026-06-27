@@ -173,7 +173,38 @@ test("powers up selected answer text as draggable context", async ({ page }, tes
   const poweredSelection = page.getByTestId("powered-selection");
   await expect(poweredSelection).toContainText("core concept");
   await expect(poweredSelection).toHaveAttribute("draggable", "true");
+  await expect(page.getByRole("button", { name: "Spin off core concept" })).toBeVisible();
   await expect(page.getByText(/Powered context:/)).toHaveCount(0);
+});
+
+test("spins off powered text with an inline action", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered text actions are tested on pointer devices.");
+
+  await page.goto("/");
+  await page.evaluate(() => {
+    const answer = document.querySelector('[data-testid="answer-text"]');
+    if (!answer) throw new Error("Answer text not found.");
+    const walker = document.createTreeWalker(answer, NodeFilter.SHOW_TEXT);
+    let current = walker.nextNode();
+    while (current && !current.textContent?.includes("hidden prerequisite")) {
+      current = walker.nextNode();
+    }
+    if (!current || !current.textContent) throw new Error("Selection text not found.");
+    const start = current.textContent.indexOf("hidden prerequisite");
+    const range = document.createRange();
+    range.setStart(current, start);
+    range.setEnd(current, start + "hidden prerequisite".length);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    answer.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+
+  await page.getByRole("button", { name: "Spin off hidden prerequisite" }).click();
+  await expect(page.getByRole("heading", { name: "Flow: hidden prerequisite" })).toBeVisible();
+  await expect(page.getByTestId("source-thread-chip")).toContainText("Spun off from:");
+  await expect(page.getByTestId("source-thread-chip")).toContainText("How Forks helps you learn");
+  await expect(page.getByTestId("source-thread-chip")).toContainText("hidden prerequisite");
 });
 
 test("drops powered context on the workspace to create a new thread", async ({ page }, testInfo) => {

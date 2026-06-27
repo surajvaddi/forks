@@ -1,6 +1,6 @@
 import { ChatComposer } from "./ChatComposer";
 import { AnswerNode } from "./AnswerNode";
-import type { ChatTurnRecord, NodeRecord, PinRecord, SpanRecord, ThreadRecord } from "@/lib/store";
+import type { ChatTurnRecord, NodeRecord, PinRecord, SpanRecord, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
 
 export function ChatThread({
   thread,
@@ -8,7 +8,9 @@ export function ChatThread({
   nodes,
   spans,
   pins,
-  projectId
+  projectId,
+  threadLinks,
+  threads
 }: {
   thread: ThreadRecord;
   turns: ChatTurnRecord[];
@@ -16,12 +18,30 @@ export function ChatThread({
   spans: SpanRecord[];
   pins: PinRecord[];
   projectId: string;
+  threadLinks: ThreadLinkRecord[];
+  threads: ThreadRecord[];
 }) {
+  const sourceLink = threadLinks.find((link) => link.targetThreadId === thread.id && link.type === "SPUN_OFF_FROM");
+  const sourceThread = sourceLink ? threads.find((item) => item.id === sourceLink.sourceThreadId) : undefined;
+
   return (
     <main className="flex min-h-0 flex-col bg-paper max-md:flex-1" aria-label="Learning chat">
       <header className="border-b border-line bg-paper px-6 py-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Learning chat thread</p>
         <h2 className="text-2xl font-semibold">{thread.title}</h2>
+        {sourceLink ? (
+          <div className="mt-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded border border-line bg-white px-3 py-2 text-xs text-neutral-600" data-testid="source-thread-chip">
+            <span className="font-semibold text-ink">Spun off from:</span>
+            {sourceThread ? (
+              <a className="font-medium text-moss hover:underline" href={`/?project=${projectId}&thread=${sourceThread.id}`}>
+                {sourceThread.title}
+              </a>
+            ) : (
+              <span className="font-medium text-neutral-500">Source thread unavailable</span>
+            )}
+            {sourceLink.sourceText ? <span className="max-w-[28rem] truncate text-neutral-500">“{sourceLink.sourceText}”</span> : null}
+          </div>
+        ) : null}
       </header>
 
       <section className="min-h-0 flex-1 overflow-auto p-6 forks-scrollbar" data-testid="chat-transcript">

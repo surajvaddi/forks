@@ -35,7 +35,7 @@ export function AnswerNode({
           </SubmitButton>
         </form>
       </div>
-      <ExpandableAnswerText content={node.content} spans={spans} projectId={projectId} sourceThreadId={threadId} />
+      <ExpandableAnswerText content={node.content} spans={spans} projectId={projectId} sourceThreadId={threadId} sourceNodeId={node.id} />
     </article>
   );
 }

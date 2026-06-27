@@ -40,14 +40,42 @@ export async function createThreadAction(formData: FormData) {
   redirect(`/?project=${projectId}&thread=${thread.id}`);
 }
 
-export async function createThreadFromPoweredContextAction(input: { projectId: string; sourceThreadId: string; selectedText: string }) {
+export async function createThreadFromPoweredContextAction(input: {
+  projectId: string;
+  sourceThreadId: string;
+  selectedText: string;
+  sourceNodeId?: string;
+  sourceSpanId?: string;
+}) {
   if (!input.projectId || !input.sourceThreadId || !input.selectedText.trim()) {
     return null;
   }
 
-  const thread = await createThreadFromContext(input.projectId, input.sourceThreadId, input.selectedText.trim());
+  const thread = await createThreadFromContext(input.projectId, input.sourceThreadId, input.selectedText.trim(), {
+    sourceNodeId: input.sourceNodeId,
+    sourceSpanId: input.sourceSpanId
+  });
   revalidatePath("/");
   return { projectId: input.projectId, threadId: thread.id };
+}
+
+export async function spinOffPoweredContextAction(input: {
+  projectId: string;
+  sourceThreadId: string;
+  selectedText: string;
+  sourceNodeId?: string;
+  sourceSpanId?: string;
+}) {
+  if (!input.projectId || !input.sourceThreadId || !input.selectedText.trim()) {
+    return;
+  }
+
+  const thread = await createThreadFromContext(input.projectId, input.sourceThreadId, input.selectedText.trim(), {
+    sourceNodeId: input.sourceNodeId,
+    sourceSpanId: input.sourceSpanId
+  });
+  revalidatePath("/");
+  redirect(`/?project=${input.projectId}&thread=${thread.id}`);
 }
 
 export async function deleteProjectAction(formData: FormData) {

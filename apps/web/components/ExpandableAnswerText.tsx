@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { spinOffPoweredContextAction } from "@/app/actions";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
 import { poweredContextMimeType, serializePoweredContext } from "@/lib/powered-context";
 import type { SpanRecord } from "@/lib/store";
@@ -153,12 +154,14 @@ export function ExpandableAnswerText({
   content,
   spans,
   projectId,
-  sourceThreadId
+  sourceThreadId,
+  sourceNodeId
 }: {
   content: string;
   spans: SpanRecord[];
   projectId: string;
   sourceThreadId: string;
+  sourceNodeId?: string;
 }) {
   const [expandedSpanIds, setExpandedSpanIds] = useState<Set<string>>(new Set());
   const [poweredSelection, setPoweredSelection] = useState<string>("");
@@ -192,7 +195,11 @@ export function ExpandableAnswerText({
     setPoweredSelection(selectedText);
   }
 
-  function handlePoweredDragStart(event: DragEvent<HTMLElement>, selectedText = poweredSelection) {
+  function findPoweredSourceSpanId(selectedText: string) {
+    return spans.find((span) => span.text.toLowerCase() === selectedText.toLowerCase())?.id;
+  }
+
+  function createPoweredPayload(selectedText = poweredSelection) {
     const startOffset = content.indexOf(selectedText);
     const extractionPlan = contextualFlowPlanner.planExtraction({
       paragraph: content,
@@ -204,18 +211,29 @@ export function ExpandableAnswerText({
 
     // TODO: Support COMBINATION and CONSOLIDATION when several powered
     // selections are dragged together or dropped onto an existing flow.
-    const payload = {
+    return {
       projectId,
       sourceThreadId,
+      sourceNodeId,
+      sourceSpanId: findPoweredSourceSpanId(selectedText),
       selectedText,
       contextualText: extractionPlan.contextualText,
       displayLabel: selectedText,
       operation: extractionPlan.operation
     };
+  }
+
+  function handlePoweredDragStart(event: DragEvent<HTMLElement>, selectedText = poweredSelection) {
+    const payload = createPoweredPayload(selectedText);
 
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData(poweredContextMimeType, serializePoweredContext(payload));
-    event.dataTransfer.setData("text/plain", extractionPlan.contextualText);
+    event.dataTransfer.setData("text/plain", payload.contextualText);
+  }
+
+  async function spinOffPoweredText(selectedText: string) {
+    const payload = createPoweredPayload(selectedText);
+    await spinOffPoweredContextAction(payload);
   }
 
   return (
@@ -254,14 +272,32 @@ export function ExpandableAnswerText({
                     {...props}
                     draggable
                     data-testid="powered-selection"
-                    className="group/powered inline cursor-grab rounded px-0.5 text-ink shadow-[0_0_0_2px_rgba(141,166,139,0.16),0_0_14px_rgba(141,166,139,0.18)] outline outline-1 outline-moss/20 transition hover:outline-moss/45 active:cursor-grabbing"
+                    className="group/powered relative inline cursor-grab rounded px-0.5 text-ink shadow-[0_0_0_2px_rgba(141,166,139,0.16),0_0_14px_rgba(141,166,139,0.18)] outline outline-1 outline-moss/20 transition hover:outline-moss/45 active:cursor-grabbing"
                     title="Drag powered context"
                     onDragStart={(event) => handlePoweredDragStart(event, poweredText)}
                   >
                     {children}
-                    <span className="ml-1 inline-block text-[10px] leading-none text-moss opacity-0 transition group-hover/powered:opacity-80" aria-hidden="true">
-                      //
-                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex translate-y-[-1px] items-center rounded border border-moss/30 bg-white/90 px-1 text-[10px] font-semibold leading-4 text-moss opacity-0 shadow-sm transition group-hover/powered:opacity-100 group-focus-within/powered:opacity-100"
+                      aria-label={`Spin off ${poweredText}`}
+                      title="Spin off"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      onMouseUp={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void spinOffPoweredText(poweredText);
+                      }}
+                    >
+                      Spin off
+                    </button>
                   </span>
                 );
               }

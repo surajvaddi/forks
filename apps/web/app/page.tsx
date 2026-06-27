@@ -38,6 +38,8 @@ export default async function Home({
           spans={snapshot.spans}
           pins={snapshot.pins}
           projectId={snapshot.project.id}
+          threadLinks={snapshot.threadLinks}
+          threads={snapshot.threads}
         />
       ) : (
         <EmptyThreads projectId={snapshot.project.id} projectTitle={snapshot.project.title} />
