@@ -109,6 +109,19 @@ export type ExportRecord = {
   createdAt: Date;
 };
 
+export type ProjectThreadSummary = {
+  threadId: string;
+  projectId: string;
+  title: string;
+  turnCount: number;
+  childThreadCount: number;
+  lastTurnRole?: ChatTurnRecord["role"];
+  lastTurnContent?: string;
+  lastActivityAt: Date;
+  sourceThreadId?: string;
+  sourceText?: string;
+};
+
 type StoreState = {
   projects: ProjectRecord[];
   threads: ThreadRecord[];
@@ -448,6 +461,28 @@ function addCanonicalSpans(nodes: NodeRecord[], spans: SpanRecord[]) {
   return additions.length > 0 ? [...spans, ...additions] : spans;
 }
 
+function createThreadSummaries(threads: ThreadRecord[], turns: ChatTurnRecord[], threadLinks: ThreadLinkRecord[]): ProjectThreadSummary[] {
+  return threads.map((thread) => {
+    const threadTurns = turns.filter((turn) => turn.threadId === thread.id).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const lastTurn = threadTurns[threadTurns.length - 1];
+    const sourceLink = threadLinks.find((link) => link.targetThreadId === thread.id && link.type === "SPUN_OFF_FROM");
+    const childThreadCount = threadLinks.filter((link) => link.sourceThreadId === thread.id && link.type === "SPUN_OFF_FROM").length;
+
+    return {
+      threadId: thread.id,
+      projectId: thread.projectId,
+      title: thread.title,
+      turnCount: threadTurns.length,
+      childThreadCount,
+      lastTurnRole: lastTurn?.role,
+      lastTurnContent: lastTurn?.content,
+      lastActivityAt: lastTurn?.createdAt ?? thread.updatedAt,
+      sourceThreadId: sourceLink?.sourceThreadId,
+      sourceText: sourceLink?.sourceText
+    };
+  });
+}
+
 export async function getProjectSnapshot(projectId?: string, threadId?: string) {
   if (shouldUsePrismaStore()) {
     return getPrismaProjectSnapshot(projectId, threadId);
@@ -461,6 +496,8 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const projectThreads = threads.filter((item) => item.projectId === project.id);
   const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : undefined;
   const turns = activeThread ? store.turns.filter((turn) => turn.threadId === activeThread.id) : [];
+  const projectTurns = store.turns.filter((turn) => turn.projectId === project.id);
+  const threadSummaries = createThreadSummaries(projectThreads, projectTurns, threadLinks);
   const nodes = store.nodes.filter((node) => node.projectId === project.id);
   const spans = addCanonicalSpans(nodes, store.spans.filter((span) => span.projectId === project.id));
   const branches = rankBranches(store.branches.filter((branch) => branch.projectId === project.id));
@@ -468,7 +505,7 @@ export async function getProjectSnapshot(projectId?: string, threadId?: string) 
   const notes = store.notes.filter((note) => note.projectId === project.id);
   const exports = store.exports.filter((record) => record.projectId === project.id);
 
-  return { project, projects: store.projects, threads, threadLinks, activeThread, turns, nodes, spans, branches, pins, notes, exports };
+  return { project, projects: store.projects, threads, threadLinks, threadSummaries, activeThread, turns, nodes, spans, branches, pins, notes, exports };
 }
 
 export async function createProject(title: string) {
@@ -939,6 +976,7 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
   const projectThreads = threads.filter((item) => item.projectId === project.id);
   const activeThread = threadId ? projectThreads.find((item) => item.id === threadId) : undefined;
   const turns = activeThread ? await prisma.chatTurn.findMany({ where: { threadId: activeThread.id }, orderBy: { createdAt: "asc" } }) : [];
+  const projectTurns = await prisma.chatTurn.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
   const nodes = await prisma.node.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "asc" } });
   const spans = await prisma.span.findMany({ where: { projectId: project.id }, orderBy: { startOffset: "asc" } });
   const branchesRaw = await prisma.branchCandidate.findMany({
@@ -990,21 +1028,25 @@ async function getPrismaProjectSnapshot(projectId?: string, threadId?: string) {
     ambiguityScore: span.ambiguityScore
   }));
 
+  const threadLinkRecords = threadLinks.map((link) => ({
+    id: link.id,
+    projectId: link.projectId,
+    sourceThreadId: link.sourceThreadId,
+    targetThreadId: link.targetThreadId,
+    sourceNodeId: link.sourceNodeId ?? undefined,
+    sourceSpanId: link.sourceSpanId ?? undefined,
+    sourceText: link.sourceText ?? undefined,
+    type: link.type as ThreadLinkType,
+    createdAt: link.createdAt
+  }));
+  const projectTurnRecords: ChatTurnRecord[] = projectTurns.map((turn) => ({ ...turn, role: turn.role as "USER" | "ASSISTANT", nodeId: undefined }));
+
   return {
     project: projectRecord,
     projects: projects.map((item) => ({ ...item, description: item.description ?? undefined })),
     threads,
-    threadLinks: threadLinks.map((link) => ({
-      id: link.id,
-      projectId: link.projectId,
-      sourceThreadId: link.sourceThreadId,
-      targetThreadId: link.targetThreadId,
-      sourceNodeId: link.sourceNodeId ?? undefined,
-      sourceSpanId: link.sourceSpanId ?? undefined,
-      sourceText: link.sourceText ?? undefined,
-      type: link.type as ThreadLinkType,
-      createdAt: link.createdAt
-    })),
+    threadLinks: threadLinkRecords,
+    threadSummaries: createThreadSummaries(projectThreads, projectTurnRecords, threadLinkRecords),
     activeThread,
     turns: turns.map((turn) => ({ ...turn, role: turn.role as "USER" | "ASSISTANT", nodeId: undefined })),
     nodes: nodeRecords,

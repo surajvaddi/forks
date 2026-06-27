@@ -136,6 +136,21 @@ describe("chat to knowledge store", () => {
     expect(updated?.turns[0].content).toContain("core concept");
   });
 
+  it("summarizes project threads for project map views", async () => {
+    const snapshot = await getSeedThreadSnapshot();
+    const thread = await createThreadFromContext(snapshot!.project.id, snapshot!.activeThread!.id, "core concept");
+    const home = await getProjectSnapshot(snapshot!.project.id);
+    const parentSummary = home?.threadSummaries.find((summary) => summary.threadId === snapshot!.activeThread!.id);
+    const childSummary = home?.threadSummaries.find((summary) => summary.threadId === thread.id);
+
+    expect(parentSummary?.title).toBe("How Forks helps you learn");
+    expect(parentSummary?.childThreadCount).toBe(1);
+    expect(parentSummary?.lastTurnContent).toContain("reusable project knowledge");
+    expect(childSummary?.sourceThreadId).toBe(snapshot!.activeThread!.id);
+    expect(childSummary?.sourceText).toBe("core concept");
+    expect(childSummary?.turnCount).toBe(1);
+  });
+
   it("creates a thread link when spinning off a suggested path", async () => {
     const snapshot = await getSeedThreadSnapshot();
     const branch = snapshot!.branches[0];
