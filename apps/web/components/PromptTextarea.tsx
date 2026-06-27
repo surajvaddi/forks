@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { usePoweredTextChunkDrop } from "@/hooks/usePoweredTextChunkDrop";
 import { createPoweredComposerChunk, type ComposerChunk } from "@/lib/composer-chunk";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
@@ -19,7 +19,9 @@ export function PromptTextarea({
   onChunkCreated?: (chunk: ComposerChunk) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const allowNextLineBreakRef = useRef(false);
   const [pendingCaretOffset, setPendingCaretOffset] = useState<number | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const { isPoweredContextOver, poweredContextDropHandlers } = usePoweredTextChunkDrop<HTMLTextAreaElement>({
     onDrop: insertPoweredContext
   });
@@ -33,8 +35,52 @@ export function PromptTextarea({
     setPendingCaretOffset(null);
   }, [pendingCaretOffset, value]);
 
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const textareaElement = textarea;
+
+    function submitFromTextarea(event: Event) {
+      event.preventDefault();
+      textareaElement.form?.requestSubmit();
+    }
+
+    function handleNativeKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) {
+        allowNextLineBreakRef.current = event.key === "Enter" && event.shiftKey;
+        return;
+      }
+
+      submitFromTextarea(event);
+    }
+
+    function handleNativeBeforeInput(event: InputEvent) {
+      if (event.inputType !== "insertLineBreak") return;
+      if (allowNextLineBreakRef.current) {
+        allowNextLineBreakRef.current = false;
+        return;
+      }
+      submitFromTextarea(event);
+    }
+
+    textareaElement.addEventListener("keydown", handleNativeKeyDown, { capture: true });
+    textareaElement.addEventListener("keypress", handleNativeKeyDown, { capture: true });
+    textareaElement.addEventListener("beforeinput", handleNativeBeforeInput, { capture: true });
+    return () => {
+      textareaElement.removeEventListener("keydown", handleNativeKeyDown, { capture: true });
+      textareaElement.removeEventListener("keypress", handleNativeKeyDown, { capture: true });
+      textareaElement.removeEventListener("beforeinput", handleNativeBeforeInput, { capture: true });
+    };
+  }, []);
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.defaultPrevented) return;
     if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) {
+      allowNextLineBreakRef.current = event.key === "Enter" && event.shiftKey;
       return;
     }
 
@@ -79,11 +125,12 @@ export function PromptTextarea({
       }`}
       placeholder={isPoweredContextOver ? "Drop to insert context" : "Ask a question inside this project..."}
       aria-label="Chat prompt"
+      data-hydrated={isHydrated ? "true" : "false"}
       required
       value={value}
       onChange={(event) => onChange(event.currentTarget.value)}
       {...poweredContextDropHandlers}
-      onKeyDown={handleKeyDown}
+      onKeyDownCapture={handleKeyDown}
     />
   );
 }

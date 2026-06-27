@@ -29,7 +29,7 @@ export function ChatThread({
   const mergedNodes = nodes.filter((node) => node.threadId === thread.id && node.type === "MERGED_NOTE" && !node.chatTurnId);
 
   return (
-    <main className="flex min-h-0 flex-col bg-paper max-md:flex-1" aria-label="Learning chat">
+    <main className="flex min-h-0 flex-col overflow-hidden bg-paper max-md:flex-1" aria-label="Learning chat">
       <header className="border-b border-line bg-paper px-6 py-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Learning chat thread</p>
         <h2 className="text-2xl font-semibold">{thread.title}</h2>

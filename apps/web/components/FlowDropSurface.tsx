@@ -75,7 +75,7 @@ export function FlowDropSurface({ children, className }: { children: ReactNode; 
 
   return (
     <div
-      className={`${className} ${isPoweredDragOver ? "ring-2 ring-inset ring-moss/60" : ""}`}
+      className={`relative ${className} ${isPoweredDragOver ? "ring-2 ring-inset ring-moss/60" : ""}`}
       data-testid="flow-drop-surface"
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
