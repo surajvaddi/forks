@@ -96,6 +96,34 @@ test("expands and condenses hover definitions inline", async ({ page }, testInfo
   await expect(page.getByText("core concept").first()).toBeVisible();
 });
 
+test("powers up selected answer text as draggable context", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered text selection is tested on pointer devices.");
+
+  await page.goto("/");
+  await page.evaluate(() => {
+    const paragraph = document.querySelector('[data-testid="answer-text"]');
+    if (!paragraph) throw new Error("Answer text not found.");
+
+    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    let current = walker.nextNode();
+    while (current && !current.textContent?.includes("core concept")) {
+      current = walker.nextNode();
+    }
+    if (!current || !current.textContent) throw new Error("Selection text not found.");
+
+    const start = current.textContent.indexOf("core concept");
+    const range = document.createRange();
+    range.setStart(current, start);
+    range.setEnd(current, start + "core concept".length);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    paragraph.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+
+  await expect(page.getByTestId("powered-selection")).toContainText("core concept");
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
