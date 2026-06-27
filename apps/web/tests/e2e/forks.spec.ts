@@ -145,7 +145,9 @@ test("drops powered context on the workspace to create a new thread", async ({ p
     const payload = {
       projectId,
       sourceThreadId: threadId,
-      selectedText: "core concept"
+      selectedText: "core concept",
+      contextualText: "core concept",
+      operation: "EXTRACTION"
     };
     const dataTransfer = new DataTransfer();
     dataTransfer.setData("application/x-forks-context", JSON.stringify(payload));
@@ -157,6 +159,62 @@ test("drops powered context on the workspace to create a new thread", async ({ p
   await expect(page.getByRole("link", { name: "Flow: core concept" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Flow: core concept" })).toBeVisible();
   await expect(page.getByText("Start a new learning flow from this highlighted context:")).toBeVisible();
+});
+
+test("previews powered context thread drops only over the workspace", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered context previews are tested on pointer devices.");
+
+  await page.goto("/");
+  const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
+  expect(sourceHref).not.toBeNull();
+  const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
+  const projectId = sourceIds.get("project");
+  const threadId = sourceIds.get("thread");
+  expect(projectId).not.toBeNull();
+  expect(threadId).not.toBeNull();
+
+  await page.evaluate(({ projectId, threadId }) => {
+    if (!projectId || !threadId) throw new Error("Project and thread query params are required.");
+    const surface = document.querySelector('[data-testid="flow-drop-surface"]');
+    if (!surface) throw new Error("Flow drop surface not found.");
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData(
+      "application/x-forks-context",
+      JSON.stringify({
+        projectId,
+        sourceThreadId: threadId,
+        selectedText: "core concept",
+        contextualText: "core concept",
+        operation: "EXTRACTION"
+      })
+    );
+    surface.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+  }, { projectId, threadId });
+
+  await expect(page.getByTestId("thread-drop-preview")).toBeVisible();
+  await expect(page.getByTestId("thread-drop-preview")).toContainText("Flow: core concept");
+
+  await page.evaluate(({ projectId, threadId }) => {
+    if (!projectId || !threadId) throw new Error("Project and thread query params are required.");
+    const prompt = document.querySelector('[aria-label="Chat prompt"]');
+    if (!prompt) throw new Error("Prompt not found.");
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData(
+      "application/x-forks-context",
+      JSON.stringify({
+        projectId,
+        sourceThreadId: threadId,
+        selectedText: "core concept",
+        contextualText: "core concept",
+        operation: "EXTRACTION"
+      })
+    );
+    prompt.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+  }, { projectId, threadId });
+
+  await expect(page.getByTestId("thread-drop-preview")).toHaveCount(0);
 });
 
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
