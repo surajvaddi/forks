@@ -65,7 +65,7 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
     <textarea
       ref={textareaRef}
       name="prompt"
-      className={`min-h-16 flex-1 resize-none rounded border bg-white px-3 py-3 text-sm shadow-sm outline-none transition ${
+      className={`min-h-0 flex-1 resize-none rounded border bg-white px-3 py-3 text-sm shadow-sm outline-none transition ${
         isPoweredContextOver ? "border-moss ring-2 ring-moss/25" : "border-line focus:border-moss"
       }`}
       placeholder={isPoweredContextOver ? "Drop to insert context" : "Ask a question inside this project..."}

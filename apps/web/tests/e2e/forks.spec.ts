@@ -79,6 +79,55 @@ test("submits a typed prompt with Enter", async ({ page }) => {
   await expect(page).toHaveURL(/thread=/);
 });
 
+test("resizes the chat composer and keeps the transcript usable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Manual composer resizing is disabled on mobile.");
+
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto("/");
+  const composer = page.getByTestId("chat-composer");
+  const handle = page.getByTestId("composer-resize-handle");
+  const transcript = page.getByTestId("chat-transcript");
+  const initialComposerBox = await composer.boundingBox();
+  const initialTranscriptBox = await transcript.boundingBox();
+  expect(initialComposerBox).not.toBeNull();
+  expect(initialTranscriptBox).not.toBeNull();
+  expect(Math.round(initialComposerBox!.height)).toBeGreaterThanOrEqual(120);
+
+  const handleBox = await handle.boundingBox();
+  expect(handleBox).not.toBeNull();
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y - 130);
+  await page.mouse.up();
+
+  const enlargedComposerBox = await composer.boundingBox();
+  const shrunkenTranscriptBox = await transcript.boundingBox();
+  expect(enlargedComposerBox).not.toBeNull();
+  expect(shrunkenTranscriptBox).not.toBeNull();
+  expect(enlargedComposerBox!.height).toBeGreaterThan(initialComposerBox!.height + 40);
+  expect(shrunkenTranscriptBox!.height).toBeLessThan(initialTranscriptBox!.height);
+  await expect.poll(async () => transcript.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+
+  const enlargedHandleBox = await handle.boundingBox();
+  expect(enlargedHandleBox).not.toBeNull();
+  await page.mouse.move(enlargedHandleBox!.x + enlargedHandleBox!.width / 2, enlargedHandleBox!.y + enlargedHandleBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(enlargedHandleBox!.x + enlargedHandleBox!.width / 2, enlargedHandleBox!.y + 500);
+  await page.mouse.up();
+
+  const clampedComposerBox = await composer.boundingBox();
+  expect(clampedComposerBox).not.toBeNull();
+  expect(Math.round(clampedComposerBox!.height)).toBe(96);
+
+  await page.getByLabel("Chat prompt").fill("hi after resize");
+  await page.getByLabel("Chat prompt").press("Enter");
+  await expect(page.getByLabel("Chat prompt")).toHaveValue("");
+  await expect(page.getByTestId("user-turn").filter({ hasText: "hi after resize" }).last()).toBeVisible();
+  const sendButtonBox = await page.getByRole("button", { name: "Send prompt" }).boundingBox();
+  expect(sendButtonBox).not.toBeNull();
+  expect(sendButtonBox!.height).toBeGreaterThan(40);
+});
+
 test("expands and condenses hover definitions inline", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Hover definition editing is tested on pointer devices.");
 

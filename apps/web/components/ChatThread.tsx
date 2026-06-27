@@ -24,7 +24,7 @@ export function ChatThread({
         <h2 className="text-2xl font-semibold">{thread.title}</h2>
       </header>
 
-      <section className="min-h-0 flex-1 overflow-auto p-6 forks-scrollbar">
+      <section className="min-h-0 flex-1 overflow-auto p-6 forks-scrollbar" data-testid="chat-transcript">
         {turns.length === 0 ? (
           <div className="mx-auto mt-20 max-w-2xl text-center">
             <h3 className="text-3xl font-semibold">Ask into the project.</h3>
@@ -37,7 +37,7 @@ export function ChatThread({
             {turns.map((turn) => {
               if (turn.role === "USER") {
                 return (
-                  <div key={turn.id} className="flex justify-end" data-testid="user-turn">
+                  <div key={turn.id} className="flex justify-end pr-10 max-md:pr-4" data-testid="user-turn">
                     <div className="max-w-[68%] rounded border border-line bg-[#e8ded0] px-4 py-3 text-sm shadow-sm">
                       {turn.content}
                     </div>
