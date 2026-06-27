@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   createProject,
   createThread,
+  createThreadFromContext,
   deleteProject,
   deleteThread,
   exportMarkdown,
@@ -37,6 +38,16 @@ export async function createThreadAction(formData: FormData) {
   const thread = await createThread(projectId, title);
   revalidatePath("/");
   redirect(`/?project=${projectId}&thread=${thread.id}`);
+}
+
+export async function createThreadFromPoweredContextAction(input: { projectId: string; sourceThreadId: string; selectedText: string }) {
+  if (!input.projectId || !input.sourceThreadId || !input.selectedText.trim()) {
+    return null;
+  }
+
+  const thread = await createThreadFromContext(input.projectId, input.sourceThreadId, input.selectedText.trim());
+  revalidatePath("/");
+  return { projectId: input.projectId, threadId: thread.id };
 }
 
 export async function deleteProjectAction(formData: FormData) {

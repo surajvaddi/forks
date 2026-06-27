@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   createProject,
   createThread,
+  createThreadFromContext,
   deleteProject,
   deleteThread,
   exportMarkdown,
@@ -104,5 +105,17 @@ describe("chat to knowledge store", () => {
     expect(target.thread).toBeUndefined();
     expect(updated?.threads.some((thread) => thread.projectId === snapshot!.project.id)).toBe(false);
     expect(updated?.activeThread).toBeUndefined();
+  });
+
+  it("creates a new thread from powered context", async () => {
+    const snapshot = await getProjectSnapshot();
+    const thread = await createThreadFromContext(snapshot!.project.id, snapshot!.activeThread!.id, "core concept");
+    const updated = await getProjectSnapshot(snapshot!.project.id, thread.id);
+
+    expect(updated?.activeThread?.title).toBe("Flow: core concept");
+    expect(updated?.turns).toHaveLength(1);
+    expect(updated?.turns[0].role).toBe("USER");
+    expect(updated?.turns[0].content).toContain("Start a new learning flow");
+    expect(updated?.turns[0].content).toContain("core concept");
   });
 });

@@ -482,6 +482,40 @@ export async function createThread(projectId: string, title: string) {
   return thread;
 }
 
+function createContextThreadTitle(selectedText: string) {
+  const normalized = selectedText.replace(/\s+/g, " ").trim();
+  const preview = normalized.length > 42 ? `${normalized.slice(0, 39)}...` : normalized;
+  return `Flow: ${preview || "Selected context"}`;
+}
+
+function createContextThreadPrompt(selectedText: string) {
+  return `Start a new learning flow from this highlighted context:\n\n${selectedText}`;
+}
+
+export async function createThreadFromContext(projectId: string, sourceThreadId: string, selectedText: string) {
+  if (shouldUsePrismaStore()) {
+    return createPrismaThreadFromContext(projectId, sourceThreadId, selectedText);
+  }
+
+  const store = getStore();
+  const stamp = now();
+  const title = createContextThreadTitle(selectedText);
+  const thread: ThreadRecord = { id: createId("thread"), projectId, title, createdAt: stamp, updatedAt: stamp };
+  const turn: ChatTurnRecord = {
+    id: createId("turn"),
+    projectId,
+    threadId: thread.id,
+    role: "USER",
+    content: createContextThreadPrompt(selectedText),
+    createdAt: stamp
+  };
+
+  store.threads.push(thread);
+  store.turns.push(turn);
+  persistCurrentStore();
+  return thread;
+}
+
 export async function deleteProject(projectId: string) {
   if (shouldUsePrismaStore()) {
     return deletePrismaProject(projectId);
@@ -958,6 +992,19 @@ async function createPrismaSeedProject() {
 
 async function createPrismaThread(projectId: string, title: string) {
   return prisma.thread.create({ data: { projectId, title } });
+}
+
+async function createPrismaThreadFromContext(projectId: string, _sourceThreadId: string, selectedText: string) {
+  const thread = await prisma.thread.create({ data: { projectId, title: createContextThreadTitle(selectedText) } });
+  await prisma.chatTurn.create({
+    data: {
+      projectId,
+      threadId: thread.id,
+      role: "USER",
+      content: createContextThreadPrompt(selectedText)
+    }
+  });
+  return thread;
 }
 
 async function deletePrismaProject(projectId: string) {

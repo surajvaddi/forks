@@ -124,6 +124,41 @@ test("powers up selected answer text as draggable context", async ({ page }, tes
   await expect(page.getByTestId("powered-selection")).toContainText("core concept");
 });
 
+test("drops powered context on the workspace to create a new thread", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered context drops are tested on pointer devices.");
+
+  await page.goto("/");
+  const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
+  expect(sourceHref).not.toBeNull();
+  const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
+  const projectId = sourceIds.get("project");
+  const threadId = sourceIds.get("thread");
+  expect(projectId).not.toBeNull();
+  expect(threadId).not.toBeNull();
+
+  await page.evaluate(({ projectId, threadId }) => {
+    if (!projectId || !threadId) throw new Error("Project and thread query params are required.");
+
+    const surface = document.querySelector('[data-testid="flow-drop-surface"]');
+    if (!surface) throw new Error("Flow drop surface not found.");
+
+    const payload = {
+      projectId,
+      sourceThreadId: threadId,
+      selectedText: "core concept"
+    };
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData("application/x-forks-context", JSON.stringify(payload));
+    dataTransfer.setData("text/plain", payload.selectedText);
+    surface.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+    surface.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  }, { projectId, threadId });
+
+  await expect(page.getByRole("link", { name: "Flow: core concept" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Flow: core concept" })).toBeVisible();
+  await expect(page.getByText("Start a new learning flow from this highlighted context:")).toBeVisible();
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
