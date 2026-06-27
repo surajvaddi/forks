@@ -205,6 +205,9 @@ test("spins off powered text with an inline action", async ({ page }, testInfo) 
   await expect(page.getByTestId("source-thread-chip")).toContainText("Spun off from:");
   await expect(page.getByTestId("source-thread-chip")).toContainText("How Forks helps you learn");
   await expect(page.getByTestId("source-thread-chip")).toContainText("hidden prerequisite");
+  await expect(page.getByTestId("sidebar-spin-off-thread").getByRole("link", { name: /Flow: hidden prerequisite/ })).toBeVisible();
+  await page.getByTestId("source-thread-chip").getByRole("link", { name: "How Forks helps you learn" }).click();
+  await expect(page.getByTestId("thread-spin-off-count")).toContainText("1");
 });
 
 test("drops powered context on the workspace to create a new thread", async ({ page }, testInfo) => {

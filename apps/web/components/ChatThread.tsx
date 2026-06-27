@@ -23,6 +23,7 @@ export function ChatThread({
 }) {
   const sourceLink = threadLinks.find((link) => link.targetThreadId === thread.id && link.type === "SPUN_OFF_FROM");
   const sourceThread = sourceLink ? threads.find((item) => item.id === sourceLink.sourceThreadId) : undefined;
+  const childSpinOffs = threadLinks.filter((link) => link.sourceThreadId === thread.id && link.type === "SPUN_OFF_FROM");
 
   return (
     <main className="flex min-h-0 flex-col bg-paper max-md:flex-1" aria-label="Learning chat">
@@ -40,6 +41,11 @@ export function ChatThread({
               <span className="font-medium text-neutral-500">Source thread unavailable</span>
             )}
             {sourceLink.sourceText ? <span className="max-w-[28rem] truncate text-neutral-500">“{sourceLink.sourceText}”</span> : null}
+          </div>
+        ) : null}
+        {childSpinOffs.length > 0 ? (
+          <div className="mt-3 rounded border border-line bg-white px-3 py-2 text-xs text-neutral-600" data-testid="thread-spin-off-count">
+            <span className="font-semibold text-ink">{childSpinOffs.length}</span> open spin-off{childSpinOffs.length === 1 ? "" : "s"} from this thread
           </div>
         ) : null}
       </header>

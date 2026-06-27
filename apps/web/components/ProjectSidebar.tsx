@@ -4,15 +4,17 @@ import { BookOpen, FolderPlus, MessageSquare, MessageSquarePlus, Trash2 } from "
 import { useOptimistic } from "react";
 import { createProjectAction, createThreadAction, deleteProjectAction, deleteThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
-import type { ProjectRecord, ThreadRecord } from "@/lib/store";
+import type { ProjectRecord, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
 
 export function ProjectSidebar({
   projects,
   threads,
+  threadLinks = [],
   activeProjectId
 }: {
   projects: ProjectRecord[];
   threads: ThreadRecord[];
+  threadLinks?: ThreadLinkRecord[];
   activeProjectId?: string;
 }) {
   const [optimisticProjects, addOptimisticProject] = useOptimistic(
@@ -33,6 +35,15 @@ export function ProjectSidebar({
     const projectThreads = threadsByProject.get(thread.projectId) ?? [];
     projectThreads.push(thread);
     threadsByProject.set(thread.projectId, projectThreads);
+  }
+  const childThreadIds = new Set(threadLinks.filter((link) => link.type === "SPUN_OFF_FROM").map((link) => link.targetThreadId));
+  const childrenBySourceThread = new Map<string, ThreadRecord[]>();
+  for (const link of threadLinks.filter((item) => item.type === "SPUN_OFF_FROM")) {
+    const child = threads.find((thread) => thread.id === link.targetThreadId);
+    if (!child) continue;
+    const existing = childrenBySourceThread.get(link.sourceThreadId) ?? [];
+    existing.push(child);
+    childrenBySourceThread.set(link.sourceThreadId, existing);
   }
 
   return (
@@ -99,25 +110,18 @@ export function ProjectSidebar({
               </div>
 
               <div className="mt-1 space-y-1 pl-3" aria-label={`${project.title} threads`}>
-                {(threadsByProject.get(project.id) ?? []).map((thread) => (
-                  <div key={thread.id} className="flex items-center gap-1 rounded text-neutral-700 hover:bg-white">
-                    <MessageSquare size={13} className="ml-1 shrink-0 text-neutral-400" />
-                    <a href={`/?project=${thread.projectId}&thread=${thread.id}`} className="min-w-0 flex-1 truncate px-1 py-1.5 text-xs">
-                      {thread.title}
-                    </a>
-                    <form action={deleteThreadAction}>
-                      <input type="hidden" name="projectId" value={thread.projectId} />
-                      <input type="hidden" name="threadId" value={thread.id} />
-                      <SubmitButton
-                        className="grid h-6 w-6 place-items-center rounded text-neutral-400 hover:bg-[#f4d7ce] hover:text-rust"
-                        aria-label={`Delete thread ${thread.title}`}
-                        title="Delete thread"
-                      >
-                        <Trash2 size={12} />
-                      </SubmitButton>
-                    </form>
-                  </div>
-                ))}
+                {(threadsByProject.get(project.id) ?? [])
+                  .filter((thread) => !childThreadIds.has(thread.id))
+                  .map((thread) => (
+                    <div key={thread.id} data-testid="sidebar-thread-group">
+                      <SidebarThreadRow thread={thread} />
+                      {(childrenBySourceThread.get(thread.id) ?? []).map((child) => (
+                        <div key={child.id} className="ml-4 border-l border-line pl-2" data-testid="sidebar-spin-off-thread">
+                          <SidebarThreadRow thread={child} isSpinOff />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
               </div>
             </section>
           ))}
@@ -144,5 +148,28 @@ export function ProjectSidebar({
         </form>
       ) : null}
     </aside>
+  );
+}
+
+function SidebarThreadRow({ thread, isSpinOff = false }: { thread: ThreadRecord; isSpinOff?: boolean }) {
+  return (
+    <div className="flex items-center gap-1 rounded text-neutral-700 hover:bg-white">
+      <MessageSquare size={13} className={`ml-1 shrink-0 ${isSpinOff ? "text-moss" : "text-neutral-400"}`} />
+      <a href={`/?project=${thread.projectId}&thread=${thread.id}`} className="min-w-0 flex-1 truncate px-1 py-1.5 text-xs">
+        {isSpinOff ? "↳ " : ""}
+        {thread.title}
+      </a>
+      <form action={deleteThreadAction}>
+        <input type="hidden" name="projectId" value={thread.projectId} />
+        <input type="hidden" name="threadId" value={thread.id} />
+        <SubmitButton
+          className="grid h-6 w-6 place-items-center rounded text-neutral-400 hover:bg-[#f4d7ce] hover:text-rust"
+          aria-label={`Delete thread ${thread.title}`}
+          title="Delete thread"
+        >
+          <Trash2 size={12} />
+        </SubmitButton>
+      </form>
+    </div>
   );
 }

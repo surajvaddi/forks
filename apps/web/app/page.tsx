@@ -20,7 +20,7 @@ export default async function Home({
   if (!snapshot) {
     return (
       <AppShell>
-        <ProjectSidebar projects={[]} threads={[]} />
+        <ProjectSidebar projects={[]} threads={[]} threadLinks={[]} />
         <EmptyProjects />
         <div className="max-lg:hidden" />
       </AppShell>
@@ -29,7 +29,7 @@ export default async function Home({
 
   return (
     <AppShell>
-      <ProjectSidebar projects={snapshot.projects} threads={snapshot.threads} activeProjectId={snapshot.project.id} />
+      <ProjectSidebar projects={snapshot.projects} threads={snapshot.threads} threadLinks={snapshot.threadLinks} activeProjectId={snapshot.project.id} />
       {snapshot.activeThread ? (
         <ChatThread
           thread={snapshot.activeThread}
