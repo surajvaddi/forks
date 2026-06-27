@@ -1,4 +1,4 @@
-import { GitBranch, MessageSquare, MessageSquarePlus } from "lucide-react";
+import { Bookmark, GitBranch, MessageSquare, MessageSquarePlus } from "lucide-react";
 import { createThreadAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import type { ExportRecord, MergedNoteRecord, PinRecord, ProjectRecord, ProjectThreadSummary, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
@@ -77,6 +77,28 @@ export function ProjectHome({
               ))
             )}
           </div>
+        </section>
+
+        <section aria-label="Saved project context" data-testid="project-saved-context">
+          <div className="mb-3 flex items-center gap-2">
+            <Bookmark size={18} className="text-rust" />
+            <h3 className="text-lg font-semibold">Saved context</h3>
+          </div>
+          {pins.length === 0 ? (
+            <p className="rounded border border-line bg-white p-4 text-sm text-neutral-600">
+              Save answers, spans, concepts, and spin-offs to keep important context close to the project.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+              {pins.slice(0, 6).map((pin) => (
+                <div key={pin.id} className="rounded border border-line bg-white p-3 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{pin.targetType.toLowerCase()}</p>
+                  <p className="mt-1 line-clamp-2 text-sm font-medium">{pin.label}</p>
+                  {pin.note ? <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{pin.note}</p> : null}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </section>
     </main>
