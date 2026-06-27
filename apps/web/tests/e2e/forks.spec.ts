@@ -326,7 +326,7 @@ test("invalid powered context drops do not create threads", async ({ page }, tes
   await expect(page.getByRole("link", { name: "Flow: core concept" })).toHaveCount(0);
 });
 
-test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
+test("complete chat spin-off save synthesize export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 
   await page.setViewportSize({ width: 1280, height: 560 });
@@ -336,19 +336,20 @@ test("complete chat branch pin merge export flow", async ({ page, browserName },
 
   await expect(page.getByRole("heading", { name: "Distributed Job Queues" }).last()).toBeVisible();
   await expectPromptInViewport(page);
+  await expect(page.getByTestId("branch-panel").getByRole("heading", { name: "Suggested spin-offs" })).toBeVisible();
   await expect(page.getByTestId("branch-panel").getByText("Define idempotent handlers").first()).toBeVisible();
 
   const firstBranch = page.getByTestId("branch-card").filter({ has: page.getByRole("heading", { name: "Define idempotent handlers" }) }).first();
-  await firstBranch.getByRole("button", { name: /Expand/ }).click();
+  await firstBranch.getByRole("button", { name: /Explore/ }).click();
   await expect(page.getByTestId("branch-panel").getByText(/interface stays calm/)).toBeVisible();
 
-  const pinButton = firstBranch.getByRole("button", { name: /^Pin$/ });
+  const pinButton = firstBranch.getByRole("button", { name: /^Save$/ });
   if ((await pinButton.count()) > 0) {
     await pinButton.click();
   }
   await expect(page.getByTestId("memory-panel").getByText("Define idempotent handlers")).toBeVisible();
 
-  await page.getByRole("button", { name: "Merge pinned" }).click();
+  await page.getByRole("button", { name: "Synthesize saved context" }).click();
   await expect(page.getByTestId("notes-panel").getByRole("heading", { name: /Study Note/ }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Export Markdown" }).first().click();

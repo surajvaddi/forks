@@ -29,7 +29,7 @@ export function ChatThread({
           <div className="mx-auto mt-20 max-w-2xl text-center">
             <h3 className="text-3xl font-semibold">Ask into the project.</h3>
             <p className="mt-3 text-neutral-600">
-              The answer will stay conversational, then become hoverable, branchable, pinnable project knowledge.
+              The answer will stay conversational, then become hoverable, reusable project knowledge.
             </p>
           </div>
         ) : (

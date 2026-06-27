@@ -31,7 +31,7 @@ export function AnswerNode({
           <input type="hidden" name="targetType" value="NODE" />
           <input type="hidden" name="label" value={node.title ?? "Assistant answer"} />
           <SubmitButton className={`inline-flex items-center gap-2 rounded border px-3 py-1.5 text-sm ${isPinned ? "border-moss bg-skywash" : "border-line bg-paper"}`}>
-            <Pin size={14} /> {isPinned ? "Pinned" : "Pin"}
+            <Pin size={14} /> {isPinned ? "Saved" : "Save"}
           </SubmitButton>
         </form>
       </div>

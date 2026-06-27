@@ -19,16 +19,20 @@ export function RightPanel({
   exports: ExportRecord[];
 }) {
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Branches and memory">
+    <aside className="flex h-full min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Nearby paths and saved context">
       <div className="min-h-0 flex-1 overflow-auto p-4 forks-scrollbar" data-testid="right-panel-scroll">
+        <header className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Nearby</p>
+          <h2 className="text-lg font-semibold">Paths around this thread</h2>
+        </header>
         <section data-testid="branch-panel">
           <div className="mb-3 flex items-center gap-2">
             <GitBranch size={16} />
-            <h2 className="font-semibold">Latent branches</h2>
+            <h2 className="font-semibold">Suggested spin-offs</h2>
           </div>
           <div className="space-y-3">
             {branches.length === 0 ? (
-              <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Ask a question to reveal possible learning moves.</p>
+              <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Ask a question to reveal nearby paths worth exploring.</p>
             ) : (
               branches.slice(0, 6).map((branch) => {
                 const generatedNode = branch.generatedNodeId ? nodes.find((node) => node.id === branch.generatedNodeId) : undefined;
@@ -48,7 +52,7 @@ export function RightPanel({
                       <form action={expandBranchAction}>
                         <input type="hidden" name="branchId" value={branch.id} />
                         <SubmitButton className="inline-flex items-center gap-1 rounded bg-ink px-2.5 py-1.5 text-xs text-paper">
-                          <Sparkles size={13} /> Expand
+                          <Sparkles size={13} /> Explore
                         </SubmitButton>
                       </form>
                       <form action={togglePinAction}>
@@ -57,7 +61,7 @@ export function RightPanel({
                         <input type="hidden" name="targetType" value="BRANCH" />
                         <input type="hidden" name="label" value={branch.label} />
                         <SubmitButton className={`inline-flex items-center gap-1 rounded border px-2.5 py-1.5 text-xs ${pinned ? "border-moss bg-skywash" : "border-line bg-paper"}`}>
-                          <Pin size={13} /> {pinned ? "Pinned" : "Pin"}
+                          <Pin size={13} /> {pinned ? "Saved" : "Save"}
                         </SubmitButton>
                       </form>
                     </div>
@@ -71,11 +75,11 @@ export function RightPanel({
         <section className="mt-6" data-testid="memory-panel">
           <div className="mb-3 flex items-center gap-2">
             <Pin size={16} />
-            <h2 className="font-semibold">Project memory</h2>
+            <h2 className="font-semibold">Saved context</h2>
           </div>
           <div className="space-y-2">
             {pins.length === 0 ? (
-              <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Pinned answers and branches will collect here.</p>
+              <p className="rounded border border-line bg-paper p-3 text-sm text-neutral-600">Saved answers and spin-offs will collect here.</p>
             ) : (
               pins.map((pin) => (
                 <div key={pin.id} className="rounded border border-line bg-white px-3 py-2">
@@ -88,7 +92,7 @@ export function RightPanel({
           <form action={mergePinsAction} className="mt-3">
             <input type="hidden" name="projectId" value={project.id} />
             <SubmitButton className="inline-flex w-full items-center justify-center gap-2 rounded bg-moss px-3 py-2 text-sm text-white">
-              <Layers3 size={15} /> Merge pinned
+              <Layers3 size={15} /> Synthesize saved context
             </SubmitButton>
           </form>
         </section>
