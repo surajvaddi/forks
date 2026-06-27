@@ -15,7 +15,7 @@ async function expectPromptInViewport(page: Page) {
 
 async function openSeedThread(page: Page) {
   await page.goto("/");
-  await page.getByRole("link", { name: "How Forks helps you learn" }).click();
+  await page.getByTestId("sidebar-thread-group").getByRole("link", { name: "How Forks helps you learn" }).click();
   await expectPromptInViewport(page);
 }
 
@@ -70,7 +70,7 @@ test("deletes projects and threads from the sidebar", async ({ page }, testInfo)
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("link", { name: projectTitle }).first()).toBeVisible();
 
-  await page.getByLabel("New thread").fill(threadTitle);
+  await page.getByRole("textbox", { name: "New thread in project" }).fill(threadTitle);
   await page.getByRole("button", { name: "Create thread" }).click();
   const projectItem = page.getByTestId("project-item").filter({ has: page.getByRole("link", { name: projectTitle }) });
   await expect(projectItem.getByRole("link", { name: threadTitle })).toBeVisible();
