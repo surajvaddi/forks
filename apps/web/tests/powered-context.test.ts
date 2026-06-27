@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPoweredContextInsertText,
   hasPoweredContext,
+  isEditableDropTarget,
   parsePoweredContext,
   poweredContextMimeType,
   serializePoweredContext,
@@ -55,5 +56,17 @@ describe("powered context payload helpers", () => {
     expect(parsed?.selectedText).toBe("core concept");
     expect(parsed?.contextualText).toBe("core concept with surrounding context");
     expect(getPoweredContextInsertText(parsed!)).toBe("core concept with surrounding context");
+  });
+
+  it("identifies editable drop targets", () => {
+    const textarea = document.createElement("textarea");
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("contenteditable", "true");
+    const child = document.createElement("span");
+    wrapper.appendChild(child);
+
+    expect(isEditableDropTarget(textarea)).toBe(true);
+    expect(isEditableDropTarget(child)).toBe(true);
+    expect(isEditableDropTarget(document.createElement("section"))).toBe(false);
   });
 });

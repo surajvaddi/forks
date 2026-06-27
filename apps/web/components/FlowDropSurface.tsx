@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createThreadFromPoweredContextAction } from "@/app/actions";
-import { hasPoweredContext, parsePoweredContext, type PoweredContextPayload } from "@/lib/powered-context";
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest("input, textarea, [contenteditable='true']"));
-}
+import { hasPoweredContext, isEditableDropTarget, parsePoweredContext, type PoweredContextPayload } from "@/lib/powered-context";
 
 function createFlowPreviewTitle(payload: PoweredContextPayload) {
   const label = payload.displayLabel || payload.selectedText;
@@ -39,7 +34,7 @@ export function FlowDropSurface({ children, className }: { children: ReactNode; 
 
   function handleDragOver(event: DragEvent<HTMLElement>) {
     if (!hasPoweredContext(event.dataTransfer)) return;
-    if (isEditableTarget(event.target)) {
+    if (event.defaultPrevented || isEditableDropTarget(event.target)) {
       clearPreview();
       return;
     }
@@ -57,7 +52,7 @@ export function FlowDropSurface({ children, className }: { children: ReactNode; 
   }
 
   async function handleDrop(event: DragEvent<HTMLElement>) {
-    if (isEditableTarget(event.target)) {
+    if (event.defaultPrevented || isEditableDropTarget(event.target)) {
       clearPreview();
       return;
     }

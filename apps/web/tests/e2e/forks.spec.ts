@@ -217,6 +217,63 @@ test("previews powered context thread drops only over the workspace", async ({ p
   await expect(page.getByTestId("thread-drop-preview")).toHaveCount(0);
 });
 
+test("drops powered context into the composer without creating a thread", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered context composer drops are tested on pointer devices.");
+
+  await page.goto("/");
+  const sourceHref = await page.getByRole("link", { name: "How Forks helps you learn" }).getAttribute("href");
+  expect(sourceHref).not.toBeNull();
+  const sourceIds = new URL(sourceHref!, "http://127.0.0.1").searchParams;
+  const projectId = sourceIds.get("project");
+  const threadId = sourceIds.get("thread");
+  expect(projectId).not.toBeNull();
+  expect(threadId).not.toBeNull();
+  const prompt = page.getByLabel("Chat prompt");
+  await prompt.fill("Explain  next");
+  await prompt.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.setSelectionRange("Explain ".length, "Explain ".length);
+  });
+
+  await page.evaluate(({ projectId, threadId }) => {
+    if (!projectId || !threadId) throw new Error("Project and thread query params are required.");
+    const prompt = document.querySelector('[aria-label="Chat prompt"]');
+    if (!prompt) throw new Error("Prompt not found.");
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData(
+      "application/x-forks-context",
+      JSON.stringify({
+        projectId,
+        sourceThreadId: threadId,
+        selectedText: "core concept",
+        contextualText: "core concept",
+        operation: "EXTRACTION"
+      })
+    );
+    prompt.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  }, { projectId, threadId });
+
+  await expect(prompt).toHaveValue("Explain core concept next");
+  await expect(page.getByRole("link", { name: "Flow: core concept" })).toHaveCount(0);
+});
+
+test("invalid powered context drops do not create threads", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Powered context drops are tested on pointer devices.");
+
+  await page.goto("/");
+  await page.evaluate(() => {
+    const surface = document.querySelector('[data-testid="flow-drop-surface"]');
+    if (!surface) throw new Error("Flow drop surface not found.");
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData("application/x-forks-context", "{nope");
+    surface.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  });
+
+  await expect(page.getByRole("link", { name: "Flow: core concept" })).toHaveCount(0);
+});
+
 test("complete chat branch pin merge export flow", async ({ page, browserName }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full branch workspace is desktop-first in the MVP.");
 

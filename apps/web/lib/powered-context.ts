@@ -63,3 +63,8 @@ export function parsePoweredContext(dataTransfer: TransferLike): PoweredContextP
 export function getPoweredContextInsertText(payload: PoweredContextPayload) {
   return payload.contextualText?.trim() || payload.selectedText;
 }
+
+export function isEditableDropTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("input, textarea, [contenteditable='true'], [contenteditable='']"));
+}
