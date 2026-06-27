@@ -34,3 +34,89 @@ input {
   scrollbar-width: thin;
   scrollbar-color: #b9b0a2 transparent;
 }
+
+.forks-markdown > :first-child {
+  margin-top: 0;
+}
+
+.forks-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.forks-markdown p,
+.forks-markdown ul,
+.forks-markdown ol,
+.forks-markdown blockquote,
+.forks-markdown table,
+.forks-markdown pre {
+  margin: 0.85rem 0;
+}
+
+.forks-markdown ul,
+.forks-markdown ol {
+  padding-left: 1.35rem;
+}
+
+.forks-markdown ul {
+  list-style: disc;
+}
+
+.forks-markdown ol {
+  list-style: decimal;
+}
+
+.forks-markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.forks-markdown blockquote {
+  border-left: 3px solid #8da68b;
+  color: #4b5563;
+  padding-left: 1rem;
+}
+
+.forks-markdown h1,
+.forks-markdown h2,
+.forks-markdown h3 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.2rem 0 0.6rem;
+}
+
+.forks-markdown h1 {
+  font-size: 1.45rem;
+}
+
+.forks-markdown h2 {
+  font-size: 1.25rem;
+}
+
+.forks-markdown h3 {
+  font-size: 1.08rem;
+}
+
+.forks-markdown table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.forks-markdown th,
+.forks-markdown td {
+  border: 1px solid #d8d0c2;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+}
+
+.forks-markdown th {
+  background: #eee9dd;
+  font-weight: 700;
+}
+
+.forks-markdown .katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
