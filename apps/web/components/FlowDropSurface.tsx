@@ -2,30 +2,13 @@
 
 import { useState, type DragEvent, type ReactNode } from "react";
 import { createThreadFromPoweredContextAction } from "@/app/actions";
-
-type PoweredContextPayload = {
-  projectId: string;
-  sourceThreadId: string;
-  selectedText: string;
-};
-
-function readPoweredContext(event: DragEvent<HTMLElement>): PoweredContextPayload | null {
-  const raw = event.dataTransfer.getData("application/x-forks-context");
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as PoweredContextPayload;
-    return parsed.projectId && parsed.sourceThreadId && parsed.selectedText ? parsed : null;
-  } catch {
-    return null;
-  }
-}
+import { hasPoweredContext, parsePoweredContext } from "@/lib/powered-context";
 
 export function FlowDropSurface({ children, className }: { children: ReactNode; className: string }) {
   const [isPoweredDragOver, setIsPoweredDragOver] = useState(false);
 
   function handleDragOver(event: DragEvent<HTMLElement>) {
-    if (event.dataTransfer.types.includes("application/x-forks-context")) {
+    if (hasPoweredContext(event.dataTransfer)) {
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
       setIsPoweredDragOver(true);
@@ -33,7 +16,7 @@ export function FlowDropSurface({ children, className }: { children: ReactNode; 
   }
 
   async function handleDrop(event: DragEvent<HTMLElement>) {
-    const payload = readPoweredContext(event);
+    const payload = parsePoweredContext(event.dataTransfer);
     if (!payload) {
       setIsPoweredDragOver(false);
       return;

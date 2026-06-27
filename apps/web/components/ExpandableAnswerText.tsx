@@ -7,6 +7,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
+import { poweredContextMimeType, serializePoweredContext } from "@/lib/powered-context";
 import type { SpanRecord } from "@/lib/store";
 
 const contextualFlowPlanner = new ContextualFlowPlanner();
@@ -151,12 +152,14 @@ export function ExpandableAnswerText({
     const payload = {
       projectId,
       sourceThreadId,
-      selectedText: extractionPlan.contextualText,
+      selectedText: poweredSelection,
+      contextualText: extractionPlan.contextualText,
+      displayLabel: poweredSelection,
       operation: extractionPlan.operation
     };
 
     event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("application/x-forks-context", JSON.stringify(payload));
+    event.dataTransfer.setData(poweredContextMimeType, serializePoweredContext(payload));
     event.dataTransfer.setData("text/plain", extractionPlan.contextualText);
   }
 
