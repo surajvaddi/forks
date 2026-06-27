@@ -4,12 +4,9 @@ import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent }
 import { usePoweredTextChunkDrop } from "@/hooks/usePoweredTextChunkDrop";
 import { ContextualFlowPlanner } from "@/lib/contextual-flow";
 import { getPoweredContextInsertText, type PoweredContextPayload } from "@/lib/powered-context";
+import { insertTextAtCaret } from "@/lib/text-insertion";
 
 const contextualFlowPlanner = new ContextualFlowPlanner();
-
-function insertTextAtSelection(value: string, insertText: string, selectionStart: number, selectionEnd: number) {
-  return `${value.slice(0, selectionStart)}${insertText}${value.slice(selectionEnd)}`;
-}
 
 export function PromptTextarea({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,11 +50,10 @@ export function PromptTextarea({ value, onChange }: { value: string; onChange: (
       endOffset: selectionEnd,
       operation: "INSERTION"
     });
-    const nextValue = insertTextAtSelection(value, insertionPlan.contextualText, selectionStart, selectionEnd);
-    const nextCaret = selectionStart + insertionPlan.contextualText.length;
+    const insertion = insertTextAtCaret(value, insertionPlan.contextualText, selectionStart, selectionEnd);
 
-    onChange(nextValue);
-    setPendingCaretOffset(nextCaret);
+    onChange(insertion.value);
+    setPendingCaretOffset(insertion.caretOffset);
   }
 
   return (
