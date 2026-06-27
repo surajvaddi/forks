@@ -807,6 +807,59 @@ export async function mergePins(projectId: string) {
   return note;
 }
 
+export async function mergeSpinOffBack(projectId: string, childThreadId: string) {
+  if (shouldUsePrismaStore()) {
+    return mergePrismaSpinOffBack(projectId, childThreadId);
+  }
+
+  const store = getStore();
+  const sourceLink = store.threadLinks.find((link) => link.projectId === projectId && link.targetThreadId === childThreadId && link.type === "SPUN_OFF_FROM");
+  if (!sourceLink) throw new Error("Spin-off source not found.");
+  const childThread = store.threads.find((thread) => thread.id === childThreadId);
+  const parentThread = store.threads.find((thread) => thread.id === sourceLink.sourceThreadId);
+  if (!childThread || !parentThread) throw new Error("Thread relationship not found.");
+
+  const childTurns = store.turns.filter((turn) => turn.threadId === childThreadId);
+  const parentTurns = store.turns.filter((turn) => turn.threadId === parentThread.id);
+  const merged = await getLlmAdapter().mergeBranches([
+    { label: `Spin-off: ${childThread.title}`, content: childTurns.map((turn) => turn.content).join("\n\n") || sourceLink.sourceText || childThread.title },
+    { label: `Parent: ${parentThread.title}`, content: parentTurns.map((turn) => turn.content).join("\n\n") || parentThread.title }
+  ]);
+  const stamp = now();
+  const note: MergedNoteRecord = {
+    id: createId("note"),
+    projectId,
+    title: `Merged back: ${childThread.title}`,
+    content: merged.content,
+    sourceIds: [parentThread.id, childThread.id],
+    createdAt: stamp,
+    updatedAt: stamp
+  };
+  const node: NodeRecord = {
+    id: createId("node"),
+    projectId,
+    threadId: parentThread.id,
+    type: "MERGED_NOTE",
+    title: note.title,
+    content: note.content,
+    createdAt: stamp,
+    updatedAt: stamp
+  };
+  store.notes.push(note);
+  store.nodes.push(node);
+  store.threadLinks.push({
+    id: createId("thread_link"),
+    projectId,
+    sourceThreadId: childThread.id,
+    targetThreadId: parentThread.id,
+    sourceText: sourceLink.sourceText,
+    type: "MERGED_INTO",
+    createdAt: stamp
+  });
+  persistCurrentStore();
+  return { note, node, parentThread };
+}
+
 export async function updateNote(noteId: string, content: string) {
   if (shouldUsePrismaStore()) {
     return updatePrismaNote(noteId, content);
@@ -1281,6 +1334,50 @@ async function mergePrismaPins(projectId: string) {
   });
   logForksEvent("note.merged", { projectId, sources: pins.length, provider: "prisma" });
   return note;
+}
+
+async function mergePrismaSpinOffBack(projectId: string, childThreadId: string) {
+  const sourceLink = await prisma.threadLink.findFirst({ where: { projectId, targetThreadId: childThreadId, type: "SPUN_OFF_FROM" } });
+  if (!sourceLink) throw new Error("Spin-off source not found.");
+  const [childThread, parentThread, childTurns, parentTurns] = await Promise.all([
+    prisma.thread.findUnique({ where: { id: childThreadId } }),
+    prisma.thread.findUnique({ where: { id: sourceLink.sourceThreadId } }),
+    prisma.chatTurn.findMany({ where: { threadId: childThreadId }, orderBy: { createdAt: "asc" } }),
+    prisma.chatTurn.findMany({ where: { threadId: sourceLink.sourceThreadId }, orderBy: { createdAt: "asc" } })
+  ]);
+  if (!childThread || !parentThread) throw new Error("Thread relationship not found.");
+
+  const merged = await getLlmAdapter().mergeBranches([
+    { label: `Spin-off: ${childThread.title}`, content: childTurns.map((turn) => turn.content).join("\n\n") || sourceLink.sourceText || childThread.title },
+    { label: `Parent: ${parentThread.title}`, content: parentTurns.map((turn) => turn.content).join("\n\n") || parentThread.title }
+  ]);
+  const note = await prisma.mergedNote.create({
+    data: {
+      projectId,
+      title: `Merged back: ${childThread.title}`,
+      content: merged.content,
+      sourceIds: [parentThread.id, childThread.id]
+    }
+  });
+  const node = await prisma.node.create({
+    data: {
+      projectId,
+      threadId: parentThread.id,
+      type: "MERGED_NOTE",
+      title: note.title,
+      content: note.content
+    }
+  });
+  await prisma.threadLink.create({
+    data: {
+      projectId,
+      sourceThreadId: childThread.id,
+      targetThreadId: parentThread.id,
+      sourceText: sourceLink.sourceText,
+      type: "MERGED_INTO"
+    }
+  });
+  return { note, node, parentThread };
 }
 
 async function updatePrismaNote(noteId: string, content: string) {

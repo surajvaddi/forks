@@ -1,5 +1,7 @@
 import { ChatComposer } from "./ChatComposer";
 import { AnswerNode } from "./AnswerNode";
+import { mergeSpinOffBackAction } from "@/app/actions";
+import { SubmitButton } from "./SubmitButton";
 import type { ChatTurnRecord, NodeRecord, PinRecord, SpanRecord, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
 
 export function ChatThread({
@@ -24,6 +26,7 @@ export function ChatThread({
   const sourceLink = threadLinks.find((link) => link.targetThreadId === thread.id && link.type === "SPUN_OFF_FROM");
   const sourceThread = sourceLink ? threads.find((item) => item.id === sourceLink.sourceThreadId) : undefined;
   const childSpinOffs = threadLinks.filter((link) => link.sourceThreadId === thread.id && link.type === "SPUN_OFF_FROM");
+  const mergedNodes = nodes.filter((node) => node.threadId === thread.id && node.type === "MERGED_NOTE" && !node.chatTurnId);
 
   return (
     <main className="flex min-h-0 flex-col bg-paper max-md:flex-1" aria-label="Learning chat">
@@ -31,16 +34,23 @@ export function ChatThread({
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Learning chat thread</p>
         <h2 className="text-2xl font-semibold">{thread.title}</h2>
         {sourceLink ? (
-          <div className="mt-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded border border-line bg-white px-3 py-2 text-xs text-neutral-600" data-testid="source-thread-chip">
-            <span className="font-semibold text-ink">Spun off from:</span>
-            {sourceThread ? (
-              <a className="font-medium text-moss hover:underline" href={`/?project=${projectId}&thread=${sourceThread.id}`}>
-                {sourceThread.title}
-              </a>
-            ) : (
-              <span className="font-medium text-neutral-500">Source thread unavailable</span>
-            )}
-            {sourceLink.sourceText ? <span className="max-w-[28rem] truncate text-neutral-500">“{sourceLink.sourceText}”</span> : null}
+          <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded border border-line bg-white px-3 py-2 text-xs text-neutral-600" data-testid="source-thread-chip">
+            <div className="min-w-0 flex flex-1 flex-wrap items-center gap-2">
+              <span className="font-semibold text-ink">Spun off from:</span>
+              {sourceThread ? (
+                <a className="font-medium text-moss hover:underline" href={`/?project=${projectId}&thread=${sourceThread.id}`}>
+                  {sourceThread.title}
+                </a>
+              ) : (
+                <span className="font-medium text-neutral-500">Source thread unavailable</span>
+              )}
+              {sourceLink.sourceText ? <span className="max-w-[28rem] truncate text-neutral-500">“{sourceLink.sourceText}”</span> : null}
+            </div>
+            <form action={mergeSpinOffBackAction}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="threadId" value={thread.id} />
+              <SubmitButton className="rounded bg-moss px-2.5 py-1.5 text-xs text-white">Merge back</SubmitButton>
+            </form>
           </div>
         ) : null}
         {childSpinOffs.length > 0 ? (
@@ -92,6 +102,13 @@ export function ChatThread({
                 </div>
               );
             })}
+            {mergedNodes.map((node) => (
+              <div key={node.id} className="mx-auto max-w-3xl rounded border border-moss bg-white p-4 shadow-sm" data-testid="merged-insight">
+                <p className="text-xs font-semibold uppercase tracking-wide text-moss">Merged insight</p>
+                <h3 className="mt-1 text-lg font-semibold">{node.title}</h3>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-700">{node.content}</p>
+              </div>
+            ))}
           </div>
         )}
       </section>

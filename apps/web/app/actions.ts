@@ -13,6 +13,7 @@ import {
   exportPdf,
   generateBranch,
   handleUserPrompt,
+  mergeSpinOffBack,
   mergePins,
   spinOffBranchSuggestion,
   togglePin,
@@ -151,6 +152,15 @@ export async function mergePinsAction(formData: FormData) {
   if (!projectId) return;
   await mergePins(projectId);
   revalidatePath("/");
+}
+
+export async function mergeSpinOffBackAction(formData: FormData) {
+  const projectId = getString(formData, "projectId");
+  const threadId = getString(formData, "threadId");
+  if (!projectId || !threadId) return;
+  const result = await mergeSpinOffBack(projectId, threadId);
+  revalidatePath("/");
+  redirect(`/?project=${projectId}&thread=${result.parentThread.id}`);
 }
 
 export async function updateNoteAction(formData: FormData) {

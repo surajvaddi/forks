@@ -11,6 +11,7 @@ import {
   getProjectSnapshot,
   handleUserPrompt,
   mergePins,
+  mergeSpinOffBack,
   resetStoreForTests,
   spinOffBranchSuggestion,
   togglePin
@@ -143,5 +144,16 @@ describe("chat to knowledge store", () => {
         type: "SPUN_OFF_FROM"
       })
     );
+  });
+
+  it("merges a spin-off back into the parent thread", async () => {
+    const snapshot = await getProjectSnapshot();
+    const child = await createThreadFromContext(snapshot!.project.id, snapshot!.activeThread!.id, "hidden prerequisite");
+    const result = await mergeSpinOffBack(snapshot!.project.id, child.id);
+    const parent = await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);
+
+    expect(result.note.sourceIds).toEqual([snapshot!.activeThread!.id, child.id]);
+    expect(parent?.nodes.some((node) => node.type === "MERGED_NOTE" && node.threadId === snapshot!.activeThread!.id)).toBe(true);
+    expect(parent?.threadLinks.some((link) => link.type === "MERGED_INTO" && link.sourceThreadId === child.id)).toBe(true);
   });
 });
