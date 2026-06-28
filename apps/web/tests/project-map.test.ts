@@ -42,6 +42,10 @@ describe("getProjectMergeCandidates", () => {
 });
 
 describe("getProjectActivity", () => {
+  it("returns no activity for an empty project map", () => {
+    expect(getProjectActivity({ threadSummaries: [], pins: [], notes: [], exports: [] })).toEqual([]);
+  });
+
   it("combines project activity in newest-first order", () => {
     const activity = getProjectActivity({
       threadSummaries: [

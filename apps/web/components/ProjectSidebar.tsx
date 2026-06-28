@@ -10,12 +10,14 @@ export function ProjectSidebar({
   projects,
   threads,
   threadLinks = [],
-  activeProjectId
+  activeProjectId,
+  activeThreadId
 }: {
   projects: ProjectRecord[];
   threads: ThreadRecord[];
   threadLinks?: ThreadLinkRecord[];
   activeProjectId?: string;
+  activeThreadId?: string;
 }) {
   const [optimisticProjects, addOptimisticProject] = useOptimistic(
     projects,
@@ -91,10 +93,14 @@ export function ProjectSidebar({
             <section key={project.id} className="rounded border border-line bg-paper/70 p-1.5" aria-label={`${project.title} project`} data-testid="project-item">
               <div
                 className={`flex items-center gap-1 rounded ${
-                  project.id === activeProjectId ? "bg-white font-semibold shadow-sm" : "hover:bg-white"
+                  project.id === activeProjectId && !activeThreadId ? "bg-white font-semibold shadow-sm" : "hover:bg-white"
                 }`}
               >
-                <a className="min-w-0 flex-1 truncate px-2 py-2 text-sm" href={`/?project=${project.id}`}>
+                <a
+                  className="min-w-0 flex-1 truncate px-2 py-2 text-sm"
+                  href={`/?project=${project.id}`}
+                  aria-current={project.id === activeProjectId && !activeThreadId ? "page" : undefined}
+                >
                   {project.title}
                 </a>
                 <form action={deleteProjectAction}>
@@ -114,10 +120,10 @@ export function ProjectSidebar({
                   .filter((thread) => !childThreadIds.has(thread.id))
                   .map((thread) => (
                     <div key={thread.id} data-testid="sidebar-thread-group">
-                      <SidebarThreadRow thread={thread} />
+                      <SidebarThreadRow thread={thread} isActive={thread.id === activeThreadId} />
                       {(childrenBySourceThread.get(thread.id) ?? []).map((child) => (
                         <div key={child.id} className="ml-4 border-l border-line pl-2" data-testid="sidebar-spin-off-thread">
-                          <SidebarThreadRow thread={child} isSpinOff />
+                          <SidebarThreadRow thread={child} isSpinOff isActive={child.id === activeThreadId} />
                         </div>
                       ))}
                     </div>
@@ -151,11 +157,15 @@ export function ProjectSidebar({
   );
 }
 
-function SidebarThreadRow({ thread, isSpinOff = false }: { thread: ThreadRecord; isSpinOff?: boolean }) {
+function SidebarThreadRow({ thread, isSpinOff = false, isActive = false }: { thread: ThreadRecord; isSpinOff?: boolean; isActive?: boolean }) {
   return (
-    <div className="flex items-center gap-1 rounded text-neutral-700 hover:bg-white">
+    <div className={`flex items-center gap-1 rounded text-neutral-700 ${isActive ? "bg-white font-semibold shadow-sm" : "hover:bg-white"}`}>
       <MessageSquare size={13} className={`ml-1 shrink-0 ${isSpinOff ? "text-moss" : "text-neutral-400"}`} />
-      <a href={`/?project=${thread.projectId}&thread=${thread.id}`} className="min-w-0 flex-1 truncate px-1 py-1.5 text-xs">
+      <a
+        href={`/?project=${thread.projectId}&thread=${thread.id}`}
+        className="min-w-0 flex-1 truncate px-1 py-1.5 text-xs"
+        aria-current={isActive ? "page" : undefined}
+      >
         {isSpinOff ? "↳ " : ""}
         {thread.title}
       </a>

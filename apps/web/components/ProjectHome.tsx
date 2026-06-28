@@ -1,5 +1,5 @@
 import { Activity, Bookmark, GitBranch, MessageSquare, MessageSquarePlus, Workflow } from "lucide-react";
-import { createThreadAction } from "@/app/actions";
+import { createThreadAction, deleteThreadAction, mergeSpinOffBackAction } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import { getProjectActivity, getProjectMergeCandidates } from "@/lib/project-map";
 import type { ExportRecord, MergedNoteRecord, PinRecord, ProjectRecord, ProjectThreadSummary, ThreadLinkRecord, ThreadRecord } from "@/lib/store";
@@ -133,17 +133,21 @@ export function ProjectHome({
             <Activity size={18} className="text-rust" />
             <h3 className="text-lg font-semibold">Recent activity</h3>
           </div>
-          <div className="rounded border border-line bg-white">
-            {activity.map((item, index) => (
-              <div key={item.id} className={`p-3 ${index > 0 ? "border-t border-line" : ""}`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{item.label}</p>
-                  <span className="text-xs text-neutral-500">{item.kind.toLowerCase()}</span>
+          {activity.length === 0 ? (
+            <p className="rounded border border-line bg-white p-4 text-sm text-neutral-600">Create a thread or save context to start the project timeline.</p>
+          ) : (
+            <div className="rounded border border-line bg-white">
+              {activity.map((item, index) => (
+                <div key={item.id} className={`p-3 ${index > 0 ? "border-t border-line" : ""}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{item.label}</p>
+                    <span className="text-xs text-neutral-500">{item.kind.toLowerCase()}</span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{item.detail}</p>
                 </div>
-                <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{item.detail}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </section>
     </main>
@@ -164,28 +168,50 @@ function ThreadTreeItem({
   const children = summaries.filter((item) => item.sourceThreadId === summary.threadId);
   const preview = summary.lastTurnContent?.replace(/\s+/g, " ").trim();
 
+  const isSpinOff = Boolean(summary.sourceThreadId);
+
   return (
     <div className={depth > 0 ? "ml-6 border-l border-line pl-4" : ""} data-testid={depth > 0 ? "project-flow-child" : "project-flow-root"}>
-      <a
-        href={`/?project=${projectId}&thread=${summary.threadId}`}
-        className="flex items-start gap-3 rounded border border-line bg-white p-3 shadow-sm transition hover:border-moss"
-      >
-        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded bg-skywash text-moss">
-          <MessageSquare size={15} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-ink">{summary.title}</span>
-            {summary.childThreadCount > 0 ? (
-              <span className="rounded bg-paper px-2 py-0.5 text-xs text-neutral-600">
-                {summary.childThreadCount} spin-off{summary.childThreadCount === 1 ? "" : "s"}
-              </span>
-            ) : null}
+      <div className="rounded border border-line bg-white p-3 shadow-sm transition hover:border-moss">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded bg-skywash text-moss">
+            <MessageSquare size={15} />
           </span>
-          {summary.sourceText ? <span className="mt-1 block truncate text-xs text-neutral-500">From: {summary.sourceText}</span> : null}
-          {preview ? <span className="mt-1 block line-clamp-2 text-sm text-neutral-600">{preview}</span> : null}
-        </span>
-      </a>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <a href={`/?project=${projectId}&thread=${summary.threadId}`} className="font-semibold text-ink hover:underline">
+                {summary.title}
+              </a>
+              {summary.childThreadCount > 0 ? (
+                <span className="rounded bg-paper px-2 py-0.5 text-xs text-neutral-600">
+                  {summary.childThreadCount} spin-off{summary.childThreadCount === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
+            {summary.sourceText ? <p className="mt-1 truncate text-xs text-neutral-500">From: {summary.sourceText}</p> : null}
+            {preview ? <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{preview}</p> : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={`/?project=${projectId}&thread=${summary.threadId}`} className="rounded border border-line bg-paper px-2.5 py-1.5 text-xs text-neutral-700 hover:border-moss">
+                Open
+              </a>
+              {isSpinOff ? (
+                <form action={mergeSpinOffBackAction}>
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <input type="hidden" name="threadId" value={summary.threadId} />
+                  <SubmitButton className="rounded bg-moss px-2.5 py-1.5 text-xs text-white">Merge back</SubmitButton>
+                </form>
+              ) : null}
+              <form action={deleteThreadAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="threadId" value={summary.threadId} />
+                <SubmitButton className="rounded border border-line bg-paper px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-[#f4d7ce] hover:text-rust">
+                  Delete
+                </SubmitButton>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
       {children.length > 0 ? (
         <div className="mt-3 space-y-3">
           {children.map((child) => (

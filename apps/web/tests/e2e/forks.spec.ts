@@ -38,12 +38,31 @@ test("Forks learning flow renders", async ({ page }) => {
 test("clicking a project opens project home without selecting a thread", async ({ page }) => {
   await page.goto("/?project=project_seed&thread=thread_seed");
   await expectPromptInViewport(page);
+  await expect(page.getByTestId("sidebar-thread-group").getByRole("link", { name: "How Forks helps you learn" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Learning With Forks" })).not.toHaveAttribute("aria-current", "page");
 
   await page.getByRole("link", { name: "Learning With Forks" }).click();
   await expect(page).toHaveURL(/project=project_seed/);
   await expect(page).not.toHaveURL(/thread=/);
   await expect(page.getByTestId("project-home")).toBeVisible();
   await expect(page.getByLabel("Chat prompt")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Learning With Forks" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("sidebar-thread-group").getByRole("link", { name: "How Forks helps you learn" })).not.toHaveAttribute("aria-current", "page");
+});
+
+test("project home creates and deletes threads from the flow tree", async ({ page }, testInfo) => {
+  const threadTitle = `Project Map Thread ${testInfo.project.name} ${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "New thread from project home" }).fill(threadTitle);
+  await page.getByRole("button", { name: "Add thread from project home" }).click();
+
+  await expect(page.getByRole("heading", { name: threadTitle })).toBeVisible();
+  await page.getByRole("link", { name: "Learning With Forks" }).click();
+  const flowRow = page.getByTestId("project-flow-root").filter({ has: page.getByRole("link", { name: threadTitle }) });
+  await expect(flowRow.getByRole("link", { name: "Open" })).toBeVisible();
+  await flowRow.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByTestId("project-flow-tree").getByRole("link", { name: threadTitle })).toHaveCount(0);
 });
 
 test("creates a project and opens its first thread", async ({ page }, testInfo) => {
