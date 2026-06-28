@@ -2517,6 +2517,105 @@ Build:
 
 ---
 
+## 26.1 Current Repository Status
+
+Last updated: 2026-06-28.
+
+The repository is currently a greenfield Next.js App Router fullstack TypeScript app in `apps/web`, backed by a memory/file store for local development and Prisma/Postgres models for the production-shaped data layer. The MVP is no longer only a linear chat shell: it now proves the core Forks loop around projects, chat, powered text, spin-offs, saved context, merge-back, project maps, and export.
+
+Current verification status:
+
+```text
+npm run typecheck  passing
+npm run test       passing, 58 tests
+npm run test:e2e   passing, 21 passed and 9 expected mobile/pointer skips
+npm run build      passing
+```
+
+There is no active Codex goal object for this repository session. The working implementation goal is tracked here: finish the powered-text/thread/project-map MVP while preserving deterministic mock LLM behavior and leaving clear stubs for future real LLM/NLP integration.
+
+Completed implementation areas:
+
+```text
+- Project and thread navigation
+- Project creation and deletion
+- Thread creation and deletion
+- Project route behavior:
+  /?project=project_id opens ProjectHome
+  /?project=project_id&thread=thread_id opens ChatThread
+- Sidebar active state for project home versus active thread
+- Seed content reframed around Forks itself instead of distributed systems
+- Native project chat with Enter/Return submit
+- Resizable desktop composer with min/max height
+- Assistant answers rendered as Markdown, GFM, code, and LaTeX/KaTeX surfaces
+- Hover definitions on extracted spans
+- Inline expanded definitions with condense affordance
+- Powered text selection rendered inline, not as a separate box
+- Powered text drag payload helpers
+- Workspace drop preview and thread creation from powered context
+- Composer drop insertion from powered context
+- Structured ComposerChunk metadata stored alongside plain inserted prompt text
+- ContextualFlowPlanner and thread-composition placeholders for future insertion, extraction, combination, consolidation, spin-off, and merge planning
+- ThreadLink model for SPUN_OFF_FROM, MERGED_INTO, and REFERENCES relationships
+- Powered text Spin off action
+- Suggested spin-offs in Nearby panel
+- Suggested spin-off actions: Spin off, Explore, Save, Dismiss
+- Lazy branch generation
+- Branch/suggestion deduplication by similarity key
+- Saved context/pins
+- Synthesize saved context into editable notes
+- Prevent empty synthesis notes when no context has been saved
+- Merge spin-off back into parent context
+- Merged insight rendering in parent thread timeline
+- Markdown export
+- PDF artifact export placeholder/renderer
+- ProjectHome overview counts and New thread action
+- Project flow tree with Open, Merge back for spin-offs, and Delete controls
+- Project saved context section
+- Project merge candidates derived from deterministic relationship logic
+- Project recent activity timeline with empty state
+- Deterministic mock LLM adapter and fixtures
+- OpenAI provider/prompt/cache scaffolding behind adapter boundaries
+```
+
+Important current stubs and intentional limitations:
+
+```text
+- Real contextual insertion/rewrite is stubbed through ContextualFlowPlanner.
+- Composer chunks are tracked as structured metadata, but the visible editor is still a textarea with plain inserted text.
+- Rich inline chunk collapse/expand in the composer is not implemented yet.
+- Merge candidates are deterministic relationship-based placeholders, not LLM-ranked convergence detection.
+- Project activity is derived from current records, not persisted event history.
+- Project flow tree is intentionally a structured list/tree, not a graph visualization.
+- Concept cache and semantic IR/compression are only partially represented; pgvector-style retrieval is still future work.
+- Saved context cards show basic labels and target types; source preview/open-source interactions need another pass.
+- PDF export is recorded/rendered as a simple artifact; production-grade PDF layout is not the focus yet.
+- Multi-user auth remains out of scope for MVP.
+```
+
+Near-term work that remains:
+
+```text
+1. Promote powered context from textarea metadata into a structured composer document model.
+2. Add source preview/open-source affordances to saved context cards on ProjectHome and Nearby.
+3. Add a merge review surface for project-level merge candidates before synthesis.
+4. Persist activity events so chat generation, powered-context transforms, saves, merges, deletes, and exports can be audited and replayed.
+5. Add richer source indicators directly on powered text that already has spin-offs.
+6. Add pin/save actions for project flow tree rows where useful.
+7. Expand accessibility coverage for keyboard-only powered text operations.
+8. Add real provider integration hardening while keeping mock tests deterministic.
+9. Add semantic compression/concept memory once the powered-text/thread loop stays stable.
+10. Add graph/minimap exploration only after the tree and merge-review workflow are dependable.
+```
+
+Recent audit outcome:
+
+```text
+The latest audit confirmed that the previously planned powered-text phases are implemented in the agreed MVP capacity. Follow-up fixes added project-map quick actions, activity empty states, and sidebar active-state semantics.
+```
+
+---
+
 # 27. Example End-to-End Flow
 
 User opens a project:
