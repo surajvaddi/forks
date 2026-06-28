@@ -75,6 +75,8 @@ describe("chat to knowledge store", () => {
     await generateBranch(branch.id);
     await togglePin(withBranches.project.id, branch.id, "BRANCH", branch.label, withBranches.activeThread!.id);
     const note = await mergePins(withBranches.project.id);
+    expect(note).not.toBeNull();
+    if (!note) throw new Error("Expected mergePins to create a note.");
     const exported = await exportMarkdown(withBranches.project.id, note.id);
     const pdf = await exportPdf(withBranches.project.id, note.id);
 
@@ -83,6 +85,16 @@ describe("chat to knowledge store", () => {
     expect(exported.content).toContain("What to remember");
     expect(pdf.type).toBe("PDF");
     expect(pdf.content.startsWith("%PDF-1.4")).toBe(true);
+  });
+
+  it("does not synthesize a note when no context has been saved", async () => {
+    const snapshot = await getSeedThreadSnapshot();
+
+    const note = await mergePins(snapshot!.project.id);
+    const updated = await getProjectSnapshot(snapshot!.project.id, snapshot!.activeThread!.id);
+
+    expect(note).toBeNull();
+    expect(updated?.notes).toHaveLength(0);
   });
 
   it("deletes projects and redirects to a remaining project target", async () => {

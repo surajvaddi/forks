@@ -27,6 +27,8 @@ export function RightPanel({
   notes: MergedNoteRecord[];
   exports: ExportRecord[];
 }) {
+  const canSynthesize = pins.length > 0;
+
   return (
     <aside className="flex h-full min-h-0 flex-col border-l border-line bg-[#f0eee7]" aria-label="Nearby paths and saved context">
       <div className="min-h-0 flex-1 overflow-auto p-4 forks-scrollbar" data-testid="right-panel-scroll">
@@ -112,7 +114,12 @@ export function RightPanel({
           </div>
           <form action={mergePinsAction} className="mt-3">
             <input type="hidden" name="projectId" value={project.id} />
-            <SubmitButton className="inline-flex w-full items-center justify-center gap-2 rounded bg-moss px-3 py-2 text-sm text-white">
+            <SubmitButton
+              className={`inline-flex w-full items-center justify-center gap-2 rounded px-3 py-2 text-sm ${
+                canSynthesize ? "bg-moss text-white" : "cursor-not-allowed border border-line bg-paper text-neutral-500"
+              }`}
+              disabled={!canSynthesize}
+            >
               <Layers3 size={15} /> Synthesize saved context
             </SubmitButton>
           </form>

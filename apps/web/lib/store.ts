@@ -823,6 +823,10 @@ export async function mergePins(projectId: string) {
 
   const store = getStore();
   const pins = store.pins.filter((pin) => pin.projectId === projectId);
+  if (pins.length === 0) {
+    return null;
+  }
+
   const inputs = pins.map((pin) => {
     const branch = store.branches.find((item) => item.id === pin.targetId);
     const node = branch?.generatedNodeId ? store.nodes.find((item) => item.id === branch.generatedNodeId) : store.nodes.find((item) => item.id === pin.targetId);
@@ -1356,6 +1360,10 @@ async function togglePrismaPin(projectId: string, targetId: string, targetType: 
 
 async function mergePrismaPins(projectId: string) {
   const pins = await prisma.pin.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+  if (pins.length === 0) {
+    return null;
+  }
+
   const branches = await prisma.branchCandidate.findMany({ where: { projectId, id: { in: pins.map((pin) => pin.targetId) } } });
   const generatedNodeIds = branches.map((branch) => branch.generatedNodeId).filter(Boolean) as string[];
   const nodes = await prisma.node.findMany({ where: { projectId, OR: [{ id: { in: pins.map((pin) => pin.targetId) } }, { id: { in: generatedNodeIds } }] } });
